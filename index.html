@@ -1852,7 +1852,7 @@ const VIEWS = {
   details: {next:'Next: Design →', nextTo:'design'},
   design:  {next:'Next: Resume →', nextTo:'resume', back:'← Details', backTo:'details'},
   resume:  {next:'Next: Download →', nextTo:'download', back:'← Design', backTo:'design'},
-  download:{next:'All steps done ✓', back:'← Resume', backTo:'resume'}
+  download:{next:'⬇ Download ZIP', action:'zip', back:'← Resume', backTo:'resume'}
 };
 function showView(v){
   currentView = v;
@@ -1865,8 +1865,8 @@ function showView(v){
   if (cfg.back) $('#backBtn').textContent = cfg.back;
   const next = $('#nextBtn');
   next.textContent = cfg.next;
-  next.disabled = !cfg.nextTo;
-  next.title = cfg.nextTo ? '' : 'You have reached the last step';
+  next.disabled = !cfg.nextTo && !cfg.action;
+  next.title = '';
   document.querySelectorAll('.steps .step').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   try { window.scrollTo({top:0}); } catch(e){}
   if (v === 'design'){ ensureDesign(); renderParts(); updatePreview(); requestAnimationFrame(fitStage); }
@@ -1875,6 +1875,7 @@ function showView(v){
 }
 
 $('#nextBtn').onclick = () => {
+  if (VIEWS[currentView].action === 'zip'){ $('#dlZip').click(); return; }
   const to = VIEWS[currentView].nextTo;
   if (!to) return;
   if (currentView === 'details' && !state.profile.name.trim()) toast('Tip: add your name (or tap Fill sample data) to see a real preview');
