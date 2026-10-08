@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portfolio Generator</title>
+<meta name="description" content="Create a student portfolio website and ATS resume. Step 1: enter your details.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f6fa; --card:#ffffff; --text:#1a1f2b; --muted:#5d6577; --line:#e2e5ee;
+  --brand:#4f46e5; --brand-ink:#ffffff; --brand-soft:#eef0ff; --input:#ffffff;
+  --ok:#15803d; --warn:#b45309; --err:#b91c1c; --chip:#eceff6;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1120; --card:#161a2d; --text:#e6e8f2; --muted:#9aa2b7; --line:#283049;
+    --brand:#8b93ff; --brand-ink:#0e1120; --brand-soft:#1e2342; --input:#11152a;
+    --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --chip:#232a45; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1120; --card:#161a2d; --text:#e6e8f2; --muted:#9aa2b7; --line:#283049;
+  --brand:#8b93ff; --brand-ink:#0e1120; --brand-soft:#1e2342; --input:#11152a;
+  --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --chip:#232a45; --shadow:none;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px}
+
+/* Header */
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;padding:12px 0 8px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700}
+.top h1{font-size:17px;margin:0;line-height:1.2}
+.top small{color:var(--muted);font-size:12.5px}
+.top .sp{flex:1}
+.icon-btn{border:1px solid var(--line);background:var(--card);border-radius:10px;width:38px;height:38px;cursor:pointer;display:grid;place-items:center;font-size:17px}
+.steps{display:flex;gap:6px;padding-bottom:8px;overflow-x:auto;scrollbar-width:none}
+.steps::-webkit-scrollbar,.chips::-webkit-scrollbar{display:none}
+.step{flex:none;font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.step.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.chips button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;white-space:nowrap}
+.chips button:hover{border-color:var(--brand);color:var(--brand)}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}
+.status{font-size:12.5px;color:var(--muted);margin-left:auto}
+.status.bad{color:var(--err)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 13px;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.ghost{background:transparent}
+.btn.danger:hover{border-color:var(--err);color:var(--err)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.add{width:100%;border-style:dashed;color:var(--brand);margin-top:10px;background:transparent}
+.lead{color:var(--muted);margin:6px 0 14px;font-size:14px}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:12px 0;box-shadow:var(--shadow);scroll-margin-top:140px}
+.card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:600;font-size:15.5px}
+.card>summary::-webkit-details-marker{display:none}
+.card>summary .ic{width:30px;height:30px;border-radius:9px;background:var(--brand-soft);display:grid;place-items:center;font-size:15px}
+.card>summary .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--muted)}
+.card>summary .tag.req{background:var(--brand-soft);color:var(--brand)}
+.card>summary .count{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500}
+.card>summary::after{content:"▾";color:var(--muted);transition:transform .2s}
+.card:not(.has-count)>summary .tag{margin-right:auto}
+.card[open]>summary::after{transform:rotate(180deg)}
+.body{padding:0 16px 16px}
+.intro{color:var(--muted);font-size:13.5px;margin:0 0 12px}
+.empty{color:var(--muted);font-size:13.5px;font-style:italic;margin:4px 0}
+
+/* Fields */
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.full{grid-column:1/-1}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.req-star{color:var(--err)}
+.field input[type=text],.field input[type=email],.field input[type=tel],.field input[type=url],.field input[type=number],.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--input);font-size:16px;outline:none}
+.field textarea{resize:vertical;min-height:72px}
+.field input:focus,.field select:focus,.field textarea:focus,.tags:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.field .bad{border-color:var(--err)!important}
+.msg{font-size:12px;color:var(--muted);margin-top:4px;min-height:0}
+.msg.bad{color:var(--err)}
+.row-msg{display:flex;justify-content:space-between;gap:8px}
+.check{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer;padding:6px 0}
+.check input{width:18px;height:18px;accent-color:var(--brand)}
+
+/* Tags */
+.tags{display:flex;flex-wrap:wrap;gap:6px;padding:7px;border:1px solid var(--line);border-radius:10px;background:var(--input);cursor:text}
+.tags input{flex:1;min-width:140px;border:0;outline:0;background:transparent;padding:4px;font-size:16px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--chip);border-radius:999px;padding:3px 4px 3px 10px;font-size:13.5px}
+.chip button{border:0;background:transparent;cursor:pointer;width:22px;height:22px;border-radius:50%;color:var(--muted);font-size:15px;line-height:1}
+.chip button:hover{background:var(--line);color:var(--err)}
+
+/* Photo */
+.photo{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.avatar{width:96px;height:96px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:30px;font-weight:700;overflow:hidden;border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.photo .btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Repeatable items */
+.items{display:flex;flex-direction:column;gap:10px}
+.item{border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--card) 92%,var(--bg))}
+.item>summary{list-style:none;display:flex;align-items:center;gap:6px;padding:10px 10px 10px 12px;cursor:pointer}
+.item>summary::-webkit-details-marker{display:none}
+.item-title{flex:1;min-width:0;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-title small{font-weight:400;color:var(--muted);margin-left:6px}
+.mini{border:1px solid var(--line);background:var(--card);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px}
+.mini:disabled{opacity:.35;cursor:default}
+.mini.del:hover{border-color:var(--err);color:var(--err)}
+.item .grid{padding:4px 12px 14px}
+.extra{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}
+
+/* Checklist */
+.checklist{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+@media (min-width:640px){.checklist{grid-template-columns:1fr 1fr}}
+.checklist li{display:flex;gap:8px;font-size:14px;align-items:flex-start}
+.checklist li .d{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;background:var(--chip);color:var(--muted)}
+.checklist li.done .d{background:var(--ok);color:#fff}
+.checklist li.done{color:var(--muted)}
+pre.json{background:var(--input);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12px;overflow:auto;max-height:360px;margin:0}
+
+/* Footer */
+footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line)}
+footer .wrap{display:flex;align-items:center;gap:12px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.prog{flex:1;min-width:0}
+.prog .lbl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+.prog .lbl b{color:var(--text)}
+.bar{height:8px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--brand);border-radius:99px;transition:width .35s}
+
+.toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">P</div>
+      <div>
+        <h1>Portfolio Generator</h1>
+        <small>Student edition</small>
+      </div>
+      <div class="sp"></div>
+      <button class="icon-btn" id="themeBtn" title="Switch light / dark" aria-label="Switch light or dark mode">🌓</button>
+    </div>
+    <div class="steps">
+      <span class="step on">1 · Your details</span>
+      <span class="step">2 · Design</span>
+      <span class="step">3 · Preview</span>
+      <span class="step">4 · Download &amp; deploy</span>
+    </div>
+    <nav class="chips" id="chips" aria-label="Jump to section"></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <button class="btn" id="sampleBtn">✨ Fill sample data</button>
+    <button class="btn" id="exportBtn">⬇ Export backup</button>
+    <button class="btn" id="importBtn">⬆ Import backup</button>
+    <button class="btn danger" id="clearBtn">🗑 Clear all</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+    <span class="status" id="status">Not saved yet</span>
+  </div>
+  <p class="lead">Fill in what you have. Everything is saved automatically in this browser and nothing is uploaded. Use <b>Export backup</b> to keep a copy or move to another device.</p>
+
+  <div id="form"></div>
+
+  <details class="card" id="sec-checklist" open>
+    <summary><span class="ic">✅</span>Portfolio strength<span class="count" id="checkCount"></span></summary>
+    <div class="body">
+      <p class="intro">Recruiters spend under a minute on a portfolio. These items make the biggest difference.</p>
+      <ul class="checklist" id="checklist"></ul>
+    </div>
+  </details>
+
+  <details class="card" id="sec-json">
+    <summary><span class="ic">🔍</span>See your data (JSON)<span class="count">for learning</span></summary>
+    <div class="body">
+      <p class="intro">This is the exact data the next steps will use to build your website and resume. The photo is shortened here.</p>
+      <pre class="json" id="json"></pre>
+    </div>
+  </details>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="prog">
+      <div class="lbl"><span>Profile completeness</span><b id="pct">0%</b></div>
+      <div class="bar"><i id="barFill"></i></div>
+    </div>
+    <button class="btn primary" id="nextBtn" disabled title="Coming in Step 2">Next: Design →</button>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =========================================================
+   Portfolio Generator · Step 1 · Student details form
+   Everything runs in the browser. Data lives in localStorage
+   and can be exported/imported as JSON.
+   ========================================================= */
+const STORE_KEY = 'pg_student_v1';
+const THEME_KEY = 'pg_theme';
+const VERSION = 1;
+
+/* ---------- 1. The form schema: one place to add/change fields ---------- */
+const SCHEMA = [
+  { id:'profile', title:'Profile', chip:'Profile', icon:'👤', need:'Required',
+    intro:'Shown in the Home section of your portfolio and at the top of your resume.',
+    fields:[
+      {k:'photo', t:'photo', label:'Profile photo'},
+      {k:'name', t:'text', label:'Full name', req:true, ph:'Priya Kumar'},
+      {k:'headline', t:'text', label:'Headline', ph:'ECE student · Embedded systems & IoT', hint:'One line shown under your name.'},
+      {k:'degree', t:'text', label:'Degree', req:true, ph:'B.E. / B.Tech / B.Sc'},
+      {k:'branch', t:'text', label:'Branch / major', req:true, ph:'Electronics and Communication Engineering'},
+      {k:'college', t:'text', label:'College', req:true, ph:'Your college name'},
+      {k:'year', t:'select', label:'Current year', opts:['1st year','2nd year','3rd year','4th year','Final semester','PG 1st year','PG 2nd year']},
+      {k:'gradYear', t:'text', label:'Expected graduation', ph:'May 2027'},
+      {k:'city', t:'text', label:'City', ph:'Chennai'},
+      {k:'objective', t:'textarea', label:'Career objective / About me', rows:4, max:400,
+       ph:'2–3 lines: who you are, what you enjoy building, and what role you are looking for.'},
+      {k:'openToWork', t:'check', label:'Show an "Open to internships & jobs" badge'}
+    ]},
+  { id:'contact', title:'Contact & links', chip:'Contact', icon:'📇', need:'Required',
+    intro:'Email and phone go on your resume. Links appear as icons on your site.',
+    fields:[
+      {k:'email', t:'email', label:'Email', req:true, ph:'yourname@gmail.com'},
+      {k:'phone', t:'tel', label:'Phone', ph:'+91 98765 43210'},
+      {k:'linkedin', t:'url', label:'LinkedIn', ph:'https://www.linkedin.com/in/yourname'},
+      {k:'github', t:'url', label:'GitHub', ph:'https://github.com/yourname'},
+      {k:'website', t:'url', label:'Other website / blog', ph:'https://…', full:true}
+    ]},
+  { id:'profiles', title:'Coding & creative profiles', chip:'Profiles', icon:'💻', need:'Optional',
+    list:true, itemLabel:'profile', titleKey:'platform', subKey:'url',
+    intro:'Profiles that show your work: LeetCode, Kaggle, Behance and so on.',
+    fields:[
+      {k:'platform', t:'select', label:'Platform', opts:['LeetCode','HackerRank','CodeChef','Codeforces','GeeksforGeeks','Kaggle','Hugging Face','Medium / Blog','YouTube','Behance','Dribbble','Other']},
+      {k:'url', t:'url', label:'Profile link', ph:'https://…'}
+    ]},
+  { id:'education', title:'Education', chip:'Education', icon:'🎓', need:'Required',
+    list:true, itemLabel:'education', titleKey:'institution', subKey:'level',
+    intro:'Start with your current degree. Add Class 12 and Class 10 too, since campus recruiters often ask for them.',
+    fields:[
+      {k:'level', t:'select', label:'Level', opts:['Degree (UG)','Postgraduate','Diploma','Class 12 / HSC','Class 10 / SSLC']},
+      {k:'institution', t:'text', label:'College / school', req:true, ph:'Institution name'},
+      {k:'board', t:'text', label:'University / board', ph:'Anna University / State Board / CBSE'},
+      {k:'scoreType', t:'select', label:'Score type', opts:['CGPA','Percentage']},
+      {k:'score', t:'text', label:'Score', ph:'8.4 or 91'},
+      {k:'start', t:'text', label:'Start year', ph:'2023'},
+      {k:'end', t:'text', label:'End year (or expected)', ph:'2027'}
+    ],
+    extra:[
+      {k:'showSchool', t:'check', label:'Show Class 12 / 10 marks on the portfolio', def:true},
+      {k:'coursework', t:'tags', label:'Relevant coursework', ph:'Digital Signal Processing, Microcontrollers…'}
+    ]},
+  { id:'skills', title:'Skills', chip:'Skills', icon:'🧠', need:'Required',
+    intro:'Grouped skills become chips on your site and a clean Skills block on your resume. Press Enter or type a comma after each.',
+    fields:[
+      {k:'languages', t:'tags', label:'Programming languages', ph:'C, Python, Java…'},
+      {k:'tools', t:'tags', label:'Tools & software', ph:'Git, MATLAB, Arduino IDE, Figma…'},
+      {k:'domain', t:'tags', label:'Domain skills', ph:'IoT, Machine Learning, PCB Design…'},
+      {k:'soft', t:'tags', label:'Soft skills', ph:'Teamwork, Presentation…'}
+    ]},
+  { id:'projects', title:'Projects', chip:'Projects', icon:'🚀', need:'Required',
+    list:true, itemLabel:'project', titleKey:'title', subKey:'category',
+    intro:'Your most important section as a student. Say what problem it solved and what you built. Tick "Featured" on your best 2–3.',
+    fields:[
+      {k:'title', t:'text', label:'Project title', req:true, ph:'Smart Irrigation using IoT'},
+      {k:'category', t:'select', label:'Type', opts:['Final-year project','Mini project','Personal project','Hackathon project','Course project','Internship project']},
+      {k:'description', t:'textarea', label:'Description', rows:4, max:500, full:true,
+       ph:'Problem → what you built → how it works → result.'},
+      {k:'tech', t:'tags', label:'Tech stack', ph:'ESP32, Python, Firebase…'},
+      {k:'role', t:'text', label:'Your role', ph:'Team lead · hardware & firmware'},
+      {k:'team', t:'number', label:'Team size', ph:'4'},
+      {k:'duration', t:'text', label:'Duration', ph:'Jan – Apr 2026'},
+      {k:'outcome', t:'text', label:'Result / outcome', ph:'Won 2nd prize · 92% accuracy · Published at…', full:true},
+      {k:'github', t:'url', label:'GitHub link', ph:'https://github.com/…'},
+      {k:'demo', t:'url', label:'Live demo / video link', ph:'https://…'},
+      {k:'featured', t:'check', label:'⭐ Featured project'}
+    ]},
+  { id:'internships', title:'Internships & training', chip:'Internships', icon:'🏢', need:'Recommended',
+    list:true, itemLabel:'internship', titleKey:'org', subKey:'role',
+    intro:'Internships, in-plant training or industry training with hands-on work.',
+    fields:[
+      {k:'org', t:'text', label:'Company / organisation', req:true, ph:'Company name'},
+      {k:'role', t:'text', label:'Role', ph:'Embedded Systems Intern'},
+      {k:'mode', t:'select', label:'Mode', opts:['On-site','Remote','Hybrid']},
+      {k:'location', t:'text', label:'Location', ph:'Bengaluru'},
+      {k:'start', t:'text', label:'Start', ph:'Jun 2025'},
+      {k:'end', t:'text', label:'End', ph:'Jul 2025'},
+      {k:'points', t:'textarea', label:'What you did', rows:4, full:true,
+       ph:'One point per line. Start each with an action verb:\nBuilt a test jig for…\nReduced… by…', hint:'One point per line. These become resume bullets.'},
+      {k:'link', t:'url', label:'Certificate / verification link', ph:'https://…', full:true}
+    ]},
+  { id:'certifications', title:'Certifications', chip:'Certifications', icon:'📜', need:'Recommended',
+    list:true, itemLabel:'certification', titleKey:'name', subKey:'issuer',
+    intro:'No images needed. Just the name and a link where anyone can verify it.',
+    fields:[
+      {k:'name', t:'text', label:'Certification name', req:true, ph:'Introduction to IoT'},
+      {k:'issuer', t:'text', label:'Issued by', ph:'NPTEL / Coursera / Cisco…'},
+      {k:'date', t:'text', label:'Date', ph:'Mar 2026'},
+      {k:'link', t:'url', label:'Verification link', ph:'https://…'}
+    ]},
+  { id:'achievements', title:'Achievements & awards', chip:'Achievements', icon:'🏆', need:'Recommended',
+    list:true, itemLabel:'achievement', titleKey:'title', subKey:'org',
+    intro:'Hackathons, competitions, symposium prizes, scholarships, ranks, exam scores (e.g. GATE).',
+    fields:[
+      {k:'title', t:'text', label:'Achievement', req:true, ph:'1st prize, project expo'},
+      {k:'org', t:'text', label:'Event / organiser', ph:'National-level symposium, XYZ College'},
+      {k:'date', t:'text', label:'Date', ph:'Feb 2026'},
+      {k:'desc', t:'textarea', label:'Details (optional)', rows:2, full:true, ph:'One line about what you did.'}
+    ]},
+  { id:'publications', title:'Papers & publications', chip:'Papers', icon:'📄', need:'Optional',
+    list:true, itemLabel:'paper', titleKey:'title', subKey:'type',
+    intro:'Paper presentations, conference or journal papers, patents, posters.',
+    fields:[
+      {k:'title', t:'text', label:'Paper title', req:true, full:true, ph:'Title of the paper'},
+      {k:'type', t:'select', label:'Type', opts:['Paper presentation','Conference paper','Journal paper','Patent','Poster']},
+      {k:'venue', t:'text', label:'Conference / journal / event', ph:'IEEE ICxxx 2026'},
+      {k:'date', t:'text', label:'Date', ph:'Mar 2026'},
+      {k:'link', t:'url', label:'Link (DOI / PDF)', ph:'https://…'}
+    ]},
+  { id:'workshops', title:'Workshops & seminars', chip:'Workshops', icon:'🛠️', need:'Optional',
+    list:true, itemLabel:'workshop', titleKey:'title', subKey:'organizer',
+    intro:'Hands-on workshops, bootcamps or seminars you attended.',
+    fields:[
+      {k:'title', t:'text', label:'Title', req:true, ph:'Hands-on workshop on PCB design'},
+      {k:'organizer', t:'text', label:'Organised by', ph:'IEEE Student Branch'},
+      {k:'date', t:'text', label:'Date', ph:'Aug 2025'}
+    ]},
+  { id:'activities', title:'Clubs, leadership & volunteering', chip:'Activities', icon:'🤝', need:'Optional',
+    list:true, itemLabel:'activity', titleKey:'role', subKey:'org',
+    intro:'Club roles, NSS / NCC, event organising, volunteering.',
+    fields:[
+      {k:'role', t:'text', label:'Role', req:true, ph:'Secretary'},
+      {k:'org', t:'text', label:'Club / organisation', ph:'IEEE Student Branch'},
+      {k:'period', t:'text', label:'Period', ph:'2025 – Present'},
+      {k:'desc', t:'textarea', label:'What you did (optional)', rows:2, full:true, ph:'Organised 3 technical events with 200+ participants.'}
+    ]},
+  { id:'more', title:'Languages & interests', chip:'More', icon:'🌐', need:'Optional',
+    fields:[
+      {k:'languages', t:'tags', label:'Languages known', ph:'English, Tamil, Hindi'},
+      {k:'interests', t:'tags', label:'Interests', ph:'Robotics, Chess, Photography'}
+    ]}
+];
+
+/* ---------- 2. Checklist rules (drive the completeness bar) ---------- */
+const filled = a => (a||[]).filter(x => Object.values(x).some(v => Array.isArray(v) ? v.length : (typeof v === 'string' ? v.trim() : false)));
+const skillCount = d => ['languages','tools','domain','soft'].reduce((n,k)=>n+(d.skills[k]||[]).length,0);
+const CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Headline under your name', d => d.profile.headline.trim()],
+  ['Degree, branch & college', d => d.profile.degree.trim() && d.profile.branch.trim() && d.profile.college.trim()],
+  ['Career objective (40+ characters)', d => d.profile.objective.trim().length >= 40],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['Phone number', d => d.contact.phone.replace(/\D/g,'').length >= 10],
+  ['LinkedIn link', d => URL_RE.test(d.contact.linkedin)],
+  ['GitHub link', d => URL_RE.test(d.contact.github)],
+  ['Current degree in Education', d => d.education.some(e => e.institution.trim())],
+  ['At least 6 skills', d => skillCount(d) >= 6],
+  ['At least 2 projects', d => d.projects.filter(p => p.title.trim()).length >= 2],
+  ['A project with a GitHub or demo link', d => d.projects.some(p => URL_RE.test(p.github) || URL_RE.test(p.demo))],
+  ['1 internship or certification', d => filled(d.internships).length + filled(d.certifications).length >= 1],
+  ['1 achievement or activity', d => filled(d.achievements).length + filled(d.activities).length >= 1]
+];
+
+/* ---------- 3. Helpers ---------- */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const URL_RE = /^https?:\/\/[^\s.]+\.[^\s]{2,}/i;
+const $ = s => document.querySelector(s);
+let uid = 0;
+
+function h(tag, attrs = {}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)){
+    if (v === false || v == null) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(c => { if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); });
+  return e;
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const initials = n => (n||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------- 4. Data model: blank, normalise, load, save ---------- */
+function emptyFrom(fields){
+  const o = {};
+  fields.forEach(f => o[f.k] = f.t === 'tags' ? [] : f.t === 'check' ? !!f.def : '');
+  return o;
+}
+function coerce(fields, src){
+  const o = emptyFrom(fields);
+  if (!src || typeof src !== 'object') return o;
+  fields.forEach(f => {
+    const v = src[f.k];
+    if (v == null) return;
+    if (f.t === 'tags') o[f.k] = Array.isArray(v) ? v.map(String).filter(Boolean) : String(v).split(',').map(s=>s.trim()).filter(Boolean);
+    else if (f.t === 'check') o[f.k] = !!v;
+    else o[f.k] = String(v);
+  });
+  return o;
+}
+function blank(){ return normalize({}); }
+function normalize(d){
+  const out = { _v: VERSION, userType: 'student' };
+  for (const s of SCHEMA){
+    if (s.list){
+      out[s.id] = Array.isArray(d[s.id]) ? d[s.id].map(it => coerce(s.fields, it)) : [];
+      if (s.extra) out[s.id + 'Extra'] = coerce(s.extra, d[s.id + 'Extra']);
+    } else {
+      out[s.id] = coerce(s.fields, d[s.id]);
+    }
+  }
+  return out;
+}
+function load(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return normalize(JSON.parse(raw));
+  } catch(e){}
+  return blank();
+}
+
+let state = load();
+let saveTimer;
+function setStatus(text, bad){ const s = $('#status'); s.textContent = text; s.classList.toggle('bad', !!bad); }
+function saveNow(){
+  clearTimeout(saveTimer);
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    const t = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    setStatus('Saved ✓ ' + t);
+  } catch(e){
+    setStatus('Browser storage blocked: use Export backup', true);
+  }
+}
+function changed(){
+  setStatus('Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 400);
+  updateProgress();
+  if ($('#sec-json').open) showJSON();
+}
+window.addEventListener('beforeunload', () => { if (saveTimer) saveNow(); });
+
+/* ---------- 5. Field builders ---------- */
+let redrawAvatar = () => {};
+
+function fieldEl(f, obj, onChange){
+  const isFull = f.full || ['textarea','tags','photo'].includes(f.t);
+  const wrap = h('div', {class: 'field' + (isFull ? ' full' : '')});
+
+  if (f.t === 'check'){
+    const cb = h('input', {type:'checkbox'});
+    cb.checked = !!obj[f.k];
+    cb.addEventListener('change', () => { obj[f.k] = cb.checked; onChange(f.k); });
+    wrap.append(h('label', {class:'check'}, cb, h('span', {}, f.label)));
+    return wrap;
+  }
+
+  const id = 'f' + (++uid);
+  wrap.append(h('label', {for: id}, f.label, f.req ? h('span', {class:'req-star'}, ' *') : null));
+
+  if (f.t === 'photo'){ photoField(f, obj, onChange, wrap); return wrap; }
+  if (f.t === 'tags'){ tagsField(f, obj, onChange, wrap, id); return wrap; }
+
+  let input;
+  if (f.t === 'textarea') input = h('textarea', {id, rows: f.rows || 3, placeholder: f.ph || '', maxlength: f.max || null});
+  else if (f.t === 'select'){
+    input = h('select', {id});
+    input.append(h('option', {value:''}, 'Select…'));
+    f.opts.forEach(o => input.append(h('option', {value:o}, o)));
+  } else {
+    const type = {email:'email', tel:'tel', url:'url', number:'number'}[f.t] || 'text';
+    input = h('input', {id, type, placeholder: f.ph || '', min: f.t === 'number' ? 1 : null,
+      autocomplete: {email:'email', tel:'tel'}[f.t] || (f.k === 'name' ? 'name' : 'off')});
+  }
+  input.value = obj[f.k] ?? '';
+
+  const msg = h('div', {class:'msg'});
+  const counter = f.max ? h('div', {class:'msg'}) : null;
+  wrap.append(input, counter ? h('div', {class:'row-msg'}, msg, counter) : msg);
+
+  function validate(strict){
+    const v = input.value.trim();
+    let err = '';
+    if (v){
+      if (f.t === 'email' && !EMAIL_RE.test(v)) err = 'That email looks incomplete.';
+      if (f.t === 'url' && !URL_RE.test(v)) err = 'Paste the full link, starting with https://';
+      if (f.t === 'tel' && v.replace(/\D/g,'').length < 10) err = 'Enter at least 10 digits.';
+    } else if (strict && f.req) err = 'This field is required.';
+    msg.textContent = err || f.hint || '';
+    msg.classList.toggle('bad', !!err);
+    input.classList.toggle('bad', !!err);
+    if (counter) counter.textContent = input.value.length + ' / ' + f.max;
+  }
+  input.addEventListener(f.t === 'select' ? 'change' : 'input', () => { obj[f.k] = input.value; validate(false); onChange(f.k); });
+  input.addEventListener('blur', () => {
+    if (f.t === 'url'){
+      const v = input.value.trim();
+      if (v && !/^https?:\/\//i.test(v) && /\./.test(v)){ input.value = 'https://' + v; obj[f.k] = input.value; onChange(f.k); }
+    }
+    validate(true);
+  });
+  validate(false);
+  return wrap;
+}
+
+function tagsField(f, obj, onChange, wrap, id){
+  const inp = h('input', {type:'text', id, placeholder: f.ph || 'Type and press Enter', enterkeyhint:'done'});
+  const box = h('div', {class:'tags', onclick: e => { if (e.target === box) inp.focus(); }}, inp);
+  function draw(){
+    box.querySelectorAll('.chip').forEach(c => c.remove());
+    obj[f.k].forEach((t, i) => {
+      box.insertBefore(h('span', {class:'chip'}, t,
+        h('button', {type:'button', 'aria-label':'Remove ' + t, onclick: () => { obj[f.k].splice(i,1); draw(); onChange(f.k); }}, '×')), inp);
+    });
+  }
+  function add(raw){
+    let added = false;
+    raw.split(',').map(s => s.trim()).filter(Boolean).forEach(t => {
+      if (!obj[f.k].some(x => x.toLowerCase() === t.toLowerCase())){ obj[f.k].push(t); added = true; }
+    });
+    inp.value = '';
+    if (added){ draw(); onChange(f.k); }
+  }
+  inp.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ',') && inp.value.trim()){ e.preventDefault(); add(inp.value); }
+    else if (e.key === 'Enter') e.preventDefault();
+    else if (e.key === 'Backspace' && !inp.value && obj[f.k].length){ obj[f.k].pop(); draw(); onChange(f.k); }
+  });
+  // Android keyboards often skip keydown, so also catch the comma on input
+  inp.addEventListener('input', () => { if (inp.value.includes(',')) add(inp.value); });
+  inp.addEventListener('blur', () => { if (inp.value.trim()) add(inp.value); });
+  wrap.append(box, h('div', {class:'msg'}, 'Press Enter or type a comma after each item.'));
+  draw();
+}
+
+function photoField(f, obj, onChange, wrap){
+  const av = h('div', {class:'avatar'});
+  const file = h('input', {type:'file', accept:'image/*', hidden:true});
+  const pick = h('button', {type:'button', class:'btn', onclick: () => file.click()});
+  const rm = h('button', {type:'button', class:'btn ghost', onclick: () => { obj[f.k] = ''; draw(); onChange(f.k); }}, 'Remove');
+  function draw(){
+    av.innerHTML = '';
+    if (obj[f.k]){ av.append(h('img', {src: obj[f.k], alt:'Profile photo'})); rm.hidden = false; pick.textContent = 'Change photo'; }
+    else { av.textContent = initials(state.profile.name) || '🙂'; rm.hidden = true; pick.textContent = 'Upload photo'; }
+  }
+  redrawAvatar = draw;
+  file.addEventListener('change', () => {
+    const fl = file.files[0];
+    if (!fl) return;
+    if (!fl.type.startsWith('image/')){ toast('Please choose an image file'); return; }
+    const url = URL.createObjectURL(fl);
+    const img = new Image();
+    img.onload = () => {
+      // Square crop. For tall photos keep the upper part, where the face usually is.
+      const s = Math.min(img.width, img.height);
+      const sx = (img.width - s) / 2;
+      const sy = img.height > img.width ? (img.height - s) * 0.25 : 0;
+      const c = document.createElement('canvas');
+      c.width = c.height = 480;
+      c.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, 480, 480);
+      obj[f.k] = c.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(url); file.value = '';
+      draw(); onChange(f.k);
+      toast('Photo cropped to a square and compressed');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('Could not read that image'); };
+    img.src = url;
+  });
+  wrap.append(h('div', {class:'photo'}, av, h('div', {}, h('div', {class:'btns'}, pick, rm),
+    h('div', {class:'msg'}, 'A clear, front-facing photo. It is cropped to a square automatically.'))), file);
+  draw();
+}
+
+/* ---------- 6. Section rendering ---------- */
+function renderList(s, body){
+  body.innerHTML = '';
+  const arr = state[s.id];
+  if (s.intro) body.append(h('p', {class:'intro'}, s.intro));
+  const list = h('div', {class:'items'});
+  if (!arr.length) list.append(h('p', {class:'empty'}, 'Nothing added yet.'));
+  arr.forEach((it, i) => list.append(itemEl(s, arr, it, i, body)));
+  body.append(list);
+  body.append(h('button', {type:'button', class:'btn add', onclick: () => {
+    arr.push(emptyFrom(s.fields));
+    renderList(s, body); changed();
+    const items = body.querySelectorAll('.item');
+    const last = items[items.length - 1];
+    if (last){ last.scrollIntoView({block:'nearest', behavior:'smooth'}); last.querySelector('input:not([type=checkbox]),select,textarea')?.focus({preventScroll:true}); }
+  }}, '+ Add ' + s.itemLabel));
+  if (s.extra){
+    const g = h('div', {class:'grid extra'});
+    s.extra.forEach(f => g.append(fieldEl(f, state[s.id + 'Extra'], changed)));
+    body.append(g);
+  }
+  const c = document.querySelector('#sec-' + s.id + ' .count');
+  if (c) c.textContent = arr.length ? arr.length + ' added' : '';
+}
+
+function itemEl(s, arr, it, i, body){
+  const title = h('span', {class:'item-title'});
+  function setTitle(){
+    title.textContent = (it[s.titleKey] || '').trim() || cap(s.itemLabel) + ' ' + (i + 1);
+    const sub = (it[s.subKey] || '').trim();
+    if (sub) title.append(h('small', {}, sub));
+  }
+  setTitle();
+  const btn = (txt, label, fn, dis, cls) => h('button', {type:'button', class:'mini' + (cls ? ' ' + cls : ''), 'aria-label':label, title:label, disabled:dis,
+    onclick: e => { e.preventDefault(); e.stopPropagation(); fn(); }}, txt);
+  const move = d => { [arr[i], arr[i+d]] = [arr[i+d], arr[i]]; renderList(s, body); changed(); };
+  const head = h('summary', {}, title,
+    btn('↑', 'Move up', () => move(-1), i === 0),
+    btn('↓', 'Move down', () => move(1), i === arr.length - 1),
+    btn('✕', 'Delete', () => {
+      const hasData = Object.values(it).some(v => Array.isArray(v) ? v.length : (typeof v === 'string' && v.trim()));
+      if (hasData && !confirm('Delete "' + title.firstChild.textContent + '"?')) return;
+      arr.splice(i, 1); renderList(s, body); changed();
+    }, false, 'del'));
+  const grid = h('div', {class:'grid'});
+  s.fields.forEach(f => grid.append(fieldEl(f, it, k => { if (k === s.titleKey || k === s.subKey) setTitle(); changed(); })));
+  const hasContent = Object.values(it).some(v => Array.isArray(v) ? v.length : (typeof v === 'string' && v.trim()));
+  return h('details', {class:'item', open: !hasContent || arr.length <= 2}, head, grid);
+}
+
+function render(){
+  const form = $('#form'), chips = $('#chips');
+  form.innerHTML = ''; chips.innerHTML = '';
+  SCHEMA.forEach((s, idx) => {
+    const tagCls = s.need === 'Required' ? 'tag req' : 'tag';
+    const card = h('details', {class:'card' + (s.list ? ' has-count' : ''), id:'sec-' + s.id, open: idx < 2},
+      h('summary', {}, h('span', {class:'ic'}, s.icon), s.title, h('span', {class:tagCls}, s.need), s.list ? h('span', {class:'count'}) : null));
+    const body = h('div', {class:'body'});
+    card.append(body);
+    if (s.list) { form.append(card); renderList(s, body); }
+    else {
+      if (s.intro) body.append(h('p', {class:'intro'}, s.intro));
+      const g = h('div', {class:'grid'});
+      s.fields.forEach(f => g.append(fieldEl(f, state[s.id], k => { if (s.id === 'profile' && k === 'name') redrawAvatar(); changed(); })));
+      body.append(g);
+      form.append(card);
+    }
+    chips.append(h('button', {type:'button', onclick: () => { card.open = true; card.scrollIntoView({behavior:'smooth', block:'start'}); }}, s.chip));
+  });
+  chips.append(h('button', {type:'button', onclick: () => $('#sec-checklist').scrollIntoView({behavior:'smooth'})}, '✅ Checklist'));
+  updateProgress();
+  if ($('#sec-json').open) showJSON();
+}
+
+/* ---------- 7. Progress + checklist ---------- */
+function updateProgress(){
+  const res = CHECKS.map(([label, fn]) => { let ok = false; try { ok = !!fn(state); } catch(e){} return [label, ok]; });
+  const done = res.filter(r => r[1]).length;
+  const pct = Math.round(done / res.length * 100);
+  $('#pct').textContent = pct + '%';
+  $('#barFill').style.width = pct + '%';
+  $('#checkCount').textContent = done + ' / ' + res.length;
+  const ul = $('#checklist'); ul.innerHTML = '';
+  res.sort((a,b) => a[1] - b[1]).forEach(([label, ok]) =>
+    ul.append(h('li', {class: ok ? 'done' : ''}, h('span', {class:'d'}, ok ? '✓' : ''), label)));
+}
+
+function showJSON(){
+  const copy = JSON.parse(JSON.stringify(state));
+  if (copy.profile.photo) copy.profile.photo = copy.profile.photo.slice(0, 40) + '… (' + Math.round(copy.profile.photo.length / 1024) + ' KB image)';
+  $('#json').textContent = JSON.stringify(copy, null, 2);
+}
+$('#sec-json').addEventListener('toggle', e => { if (e.target.open) showJSON(); });
+
+/* ---------- 8. Toolbar actions ---------- */
+$('#exportBtn').onclick = () => {
+  saveNow();
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const slug = (state.profile.name || 'student').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'student';
+  const a = h('a', {href: URL.createObjectURL(blob), download: 'portfolio-data-' + slug + '.json'});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('Backup downloaded');
+};
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = e => {
+  const fl = e.target.files[0]; e.target.value = '';
+  if (!fl) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      if (!data || typeof data !== 'object' || !data.profile) throw new Error('not ours');
+      if (!confirm('Replace everything in the form with this backup?')) return;
+      state = normalize(data); saveNow(); render(); toast('Backup imported');
+    } catch(err){ toast('That file is not a Portfolio Generator backup'); }
+  };
+  r.readAsText(fl);
+};
+$('#clearBtn').onclick = () => {
+  if (!confirm('Clear the whole form? Export a backup first if you want to keep it.')) return;
+  state = blank(); saveNow(); render(); window.scrollTo({top:0}); toast('Form cleared');
+};
+$('#sampleBtn').onclick = () => {
+  const hasData = state.profile.name.trim() || state.projects.length;
+  if (hasData && !confirm('Replace your current entries with sample data?')) return;
+  state = normalize(SAMPLE); saveNow(); render(); toast('Sample student loaded. Edit anything.');
+};
+
+/* ---------- 9. Theme toggle ---------- */
+function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
+try { applyTheme(localStorage.getItem(THEME_KEY)); } catch(e){}
+$('#themeBtn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+};
+
+/* ---------- 10. Sample data (fictional student) ---------- */
+const SAMPLE = {
+  profile: { name:'Arun Prakash', headline:'ECE student · Embedded systems & IoT', degree:'B.E.', branch:'Electronics and Communication Engineering',
+    college:'ABC Institute of Technology', year:'3rd year', gradYear:'May 2027', city:'Chennai',
+    objective:'Third-year ECE student who enjoys building embedded and IoT systems end to end, from sensor circuits to cloud dashboards. Looking for an internship where I can work on real hardware products.',
+    openToWork:true, photo:'' },
+  contact: { email:'arun.prakash@example.com', phone:'+91 98765 43210', linkedin:'https://www.linkedin.com/in/arun-prakash-example',
+    github:'https://github.com/arun-prakash-example', website:'' },
+  profiles: [ {platform:'LeetCode', url:'https://leetcode.com/u/arun-example'}, {platform:'Kaggle', url:'https://www.kaggle.com/arunexample'} ],
+  education: [
+    {level:'Degree (UG)', institution:'ABC Institute of Technology', board:'Anna University', scoreType:'CGPA', score:'8.4', start:'2023', end:'2027'},
+    {level:'Class 12 / HSC', institution:'XYZ Higher Secondary School', board:'State Board', scoreType:'Percentage', score:'91', start:'', end:'2023'},
+    {level:'Class 10 / SSLC', institution:'XYZ Higher Secondary School', board:'State Board', scoreType:'Percentage', score:'94', start:'', end:'2021'}
+  ],
+  educationExtra: { showSchool:true, coursework:['Digital Signal Processing','Microcontrollers','Analog Circuits','Communication Systems'] },
+  skills: { languages:['C','Embedded C','Python','MATLAB'], tools:['Arduino IDE','Proteus','KiCad','Git','VS Code'],
+    domain:['IoT','Embedded Systems','PCB Design','Signal Processing'], soft:['Teamwork','Presentation','Problem solving'] },
+  projects: [
+    {title:'Smart Irrigation using IoT', category:'Mini project', featured:true,
+     description:'Farmers over-water fields because they cannot see soil moisture. Built an ESP32 node that reads soil moisture and temperature, switches the pump automatically, and shows live readings on a mobile dashboard.',
+     tech:['ESP32','Embedded C','Firebase','MIT App Inventor'], role:'Team lead · firmware', team:'3', duration:'Jan – Apr 2025',
+     outcome:'Cut water use by about 30% in a 2-week campus garden trial', github:'https://github.com/arun-prakash-example/smart-irrigation', demo:''},
+    {title:'ECG Noise Removal with Digital Filters', category:'Course project', featured:true,
+     description:'Designed FIR and IIR filters to remove baseline wander and 50 Hz power-line noise from ECG signals and compared their performance.',
+     tech:['MATLAB','DSP'], role:'Individual', team:'1', duration:'Aug – Oct 2025',
+     outcome:'Improved SNR by 12 dB on MIT-BIH sample records', github:'https://github.com/arun-prakash-example/ecg-filters', demo:''},
+    {title:'Line-Following Robot', category:'Hackathon project', featured:false,
+     description:'Built a PID-controlled line follower with IR sensor array in a 24-hour hackathon.',
+     tech:['Arduino','C','PID control'], role:'Hardware & tuning', team:'4', duration:'Feb 2026',
+     outcome:'2nd place out of 40 teams', github:'', demo:'https://youtube.com/watch?v=example'}
+  ],
+  internships: [ {org:'Sample Embedded Labs Pvt Ltd', role:'Embedded Systems Intern', mode:'On-site', location:'Bengaluru', start:'Jun 2025', end:'Jul 2025',
+    points:'Built a UART test jig to check 50+ sensor boards per day\nWrote Python scripts to log and plot test results\nDocumented the board bring-up checklist for the team', link:''} ],
+  certifications: [
+    {name:'Introduction to Internet of Things', issuer:'NPTEL', date:'Nov 2025', link:'https://nptel.ac.in/'},
+    {name:'Python for Everybody', issuer:'Coursera', date:'Jun 2024', link:'https://www.coursera.org/'}
+  ],
+  achievements: [
+    {title:'2nd prize, 24-hour Robotics Hackathon', org:'National-level tech fest', date:'Feb 2026', desc:''},
+    {title:'Merit scholarship', org:'ABC Institute of Technology', date:'2024', desc:'Awarded for top 5% CGPA in department.'}
+  ],
+  publications: [ {title:'Low-cost IoT Soil Monitoring for Small Farms', type:'Paper presentation', venue:'National Conference on Emerging Technologies', date:'Mar 2026', link:''} ],
+  workshops: [ {title:'Hands-on PCB Design with KiCad', organizer:'IEEE Student Branch', date:'Aug 2025'} ],
+  activities: [ {role:'Technical Secretary', org:'IEEE Student Branch', period:'2025 – Present', desc:'Organised 3 technical events with 200+ participants.'} ],
+  more: { languages:['English','Tamil','Hindi'], interests:['Robotics','Chess','Photography'] }
+};
+
+/* ---------- Start ---------- */
+render();
+try { if (localStorage.getItem(STORE_KEY)) setStatus('Loaded your saved details'); } catch(e){}
+</script>
+</body>
+</html>
