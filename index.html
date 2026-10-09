@@ -227,6 +227,25 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
 .guide details{border-top:1px solid var(--line);padding:12px 0}
 .guide details summary{cursor:pointer;font-weight:600;font-size:14.5px}
 .guide details p,.guide details li{font-size:14px;color:var(--muted)}
+.who{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:16px 0 0;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.who-l{font-weight:600;font-size:14px}
+.who .seg button{padding:9px 13px;font-size:14px}
+.soon{font-size:12px;color:var(--muted)}
+.paste{border:1.5px dashed var(--brand);border-radius:12px;margin:0 0 14px;background:var(--brand-soft)}
+.paste>summary{cursor:pointer;list-style:none;padding:11px 14px;font-weight:600;font-size:14px}
+.paste>summary::-webkit-details-marker{display:none}
+.paste-body{padding:0 14px 14px}
+.paste textarea{width:100%;min-height:140px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--input);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.paste-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px}
+.paste-row label{font-size:13px;display:flex;gap:8px;align-items:center}
+.paste-row select{padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--input);font-size:14px}
+.paste-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:4px;max-height:360px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.paste-list li{padding:4px 10px;border-bottom:1px solid var(--line)}
+.paste-list li:last-child{border-bottom:0}
+.paste-list .check{align-items:flex-start}
+.paste-list .check input{margin-top:3px}
+.paste-list small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.paste-list li.dup{opacity:.6}
 .res-msg{padding:24px;text-align:center;color:var(--muted);background:var(--card);border-radius:12px}
 .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -241,7 +260,7 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
       <div class="logo" aria-hidden="true">P</div>
       <div>
         <h1>Portfolio Generator</h1>
-        <small>Student edition</small>
+        <small id="edition">Student edition</small>
       </div>
       <div class="sp"></div>
       <button class="icon-btn" id="themeBtn" title="Switch light / dark" aria-label="Switch light or dark mode">🌓</button>
@@ -249,7 +268,7 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
     <div class="steps">
       <button class="step on" type="button" data-view="details">1 · Your details</button>
       <button class="step" type="button" data-view="design">2 · Design &amp; preview</button>
-      <button class="step" type="button" data-view="resume">3 · ATS resume</button>
+      <button class="step" type="button" data-view="resume" id="step3">3 · ATS resume</button>
       <button class="step" type="button" data-view="download">4 · Download &amp; deploy</button>
     </div>
     <nav class="chips" id="chips" aria-label="Jump to section"></nav>
@@ -257,6 +276,13 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
 </header>
 
 <main class="wrap view" id="view-details">
+  <div class="who" role="group" aria-label="Who is this portfolio for?">
+    <span class="who-l">I am a</span>
+    <div class="seg" id="typeSeg">
+      <button type="button" data-type="student">🎓 Student</button><button type="button" data-type="professor">🧑‍🏫 Professor / Academic</button>
+    </div>
+    <span class="soon">Fresher · Working professional · Career break: coming soon</span>
+  </div>
   <div class="toolbar">
     <button class="btn" id="sampleBtn">✨ Fill sample data</button>
     <button class="btn" id="exportBtn">⬇ Export backup</button>
@@ -322,7 +348,7 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
         <button class="btn" id="openPdf" type="button" disabled>↗ Open PDF in a new tab</button>
       </div>
       <p class="hint" id="fitInfo">Preparing your resume…</p>
-      <div class="sec-title">ATS check</div>
+      <div class="sec-title" id="atsTitle">ATS check</div>
       <ul class="ats" id="atsList"></ul>
       <details class="res-opt-box" id="resOptBox">
         <summary class="sec-title">Options (paper, order, sections)</summary>
@@ -386,7 +412,7 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
    Everything runs in the browser. Data lives in localStorage
    and can be exported/imported as JSON.
    ========================================================= */
-const STORE_KEY = 'pg_student_v1';
+const TYPE_KEY = 'pg_type';
 const THEME_KEY = 'pg_theme';
 const VERSION = 1;
 
@@ -605,14 +631,10 @@ const RESUME_DEFAULT = {paper:'a4', order:'projects', maxProjects:'4',
   inc:{objective:true, school:true, coursework:true, soft:true, links:true, certs:true, achievements:true, papers:true, activities:true, workshops:true, languages:true, interests:false}};
 function normResume(r){
   r = r && typeof r === 'object' ? r : {};
-  const inc = {...RESUME_DEFAULT.inc};
-  if (r.inc && typeof r.inc === 'object') for (const k in inc) if (k in r.inc) inc[k] = !!r.inc[k];
-  return {
-    paper: ['a4','letter'].includes(r.paper) ? r.paper : 'a4',
-    order: ['projects','experience'].includes(r.order) ? r.order : 'projects',
-    maxProjects: ['2','3','4','5','6','all'].includes(r.maxProjects) ? r.maxProjects : '4',
-    inc
-  };
+  const C = TYPE.resume, out = {inc: {...C.defaults.inc}};
+  C.options.forEach(([key, , opts]) => { out[key] = opts.some(o => o[0] === r[key]) ? r[key] : C.defaults[key]; });
+  if (r.inc && typeof r.inc === 'object') for (const k in out.inc) if (k in r.inc) out.inc[k] = !!r.inc[k];
+  return out;
 }
 
 /* ---------- 1d. Publish settings (Step 4) ---------- */
@@ -693,8 +715,9 @@ function coerce(fields, src){
 }
 function blank(){ return normalize({}); }
 function normalize(d){
-  const out = { _v: VERSION, userType: 'student' };
-  for (const s of SCHEMA){
+  d = d && typeof d === 'object' ? d : {};
+  const out = { _v: VERSION, userType: TYPE.id };
+  for (const s of TYPE.schema){
     if (s.list){
       out[s.id] = Array.isArray(d[s.id]) ? d[s.id].map(it => coerce(s.fields, it)) : [];
       if (s.extra) out[s.id + 'Extra'] = coerce(s.extra, d[s.id + 'Extra']);
@@ -709,19 +732,19 @@ function normalize(d){
 }
 function load(){
   try {
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(TYPE.storeKey);
     if (raw) return normalize(JSON.parse(raw));
   } catch(e){}
   return blank();
 }
 
-let state = load();
+let state = null;
 let saveTimer;
 function setStatus(text, bad){ const s = $('#status'); s.textContent = text; s.classList.toggle('bad', !!bad); }
 function saveNow(){
   clearTimeout(saveTimer);
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    localStorage.setItem(TYPE.storeKey, JSON.stringify(state));
     const t = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     setStatus('Saved ✓ ' + t);
   } catch(e){
@@ -873,6 +896,7 @@ function renderList(s, body){
   body.innerHTML = '';
   const arr = state[s.id];
   if (s.intro) body.append(h('p', {class:'intro'}, s.intro));
+  if (s.paste) body.append(pasteBox(s, body));
   const list = h('div', {class:'items'});
   if (!arr.length) list.append(h('p', {class:'empty'}, 'Nothing added yet.'));
   arr.forEach((it, i) => list.append(itemEl(s, arr, it, i, body)));
@@ -921,7 +945,7 @@ function itemEl(s, arr, it, i, body){
 function render(){
   const form = $('#form'), chips = $('#chips');
   form.innerHTML = ''; chips.innerHTML = '';
-  SCHEMA.forEach((s, idx) => {
+  TYPE.schema.forEach((s, idx) => {
     const tagCls = s.need === 'Required' ? 'tag req' : 'tag';
     const card = h('details', {class:'card' + (s.list ? ' has-count' : ''), id:'sec-' + s.id, open: idx < 2},
       h('summary', {}, h('span', {class:'ic'}, s.icon), s.title, h('span', {class:tagCls}, s.need), s.list ? h('span', {class:'count'}) : null));
@@ -944,7 +968,7 @@ function render(){
 
 /* ---------- 7. Progress + checklist ---------- */
 function updateProgress(){
-  const res = CHECKS.map(([label, fn]) => { let ok = false; try { ok = !!fn(state); } catch(e){} return [label, ok]; });
+  const res = TYPE.checks.map(([label, fn]) => { let ok = false; try { ok = !!fn(state); } catch(e){} return [label, ok]; });
   const done = res.filter(r => r[1]).length;
   const pct = Math.round(done / res.length * 100);
   $('#pct').textContent = pct + '%';
@@ -981,8 +1005,11 @@ $('#importFile').onchange = e => {
     try {
       const data = JSON.parse(r.result);
       if (!data || typeof data !== 'object' || !data.profile) throw new Error('not ours');
-      if (!confirm('Replace everything in the form with this backup?')) return;
-      state = normalize(data); saveNow(); render(); toast('Backup imported');
+      const t = TYPES[data.userType] ? data.userType : 'student';
+      const other = t !== TYPE.id;
+      if (!confirm(other ? `This backup is for a ${TYPES[t].label}. Switch to ${TYPES[t].label} and load it?` : 'Replace everything in the form with this backup?')) return;
+      if (other){ saveNow(); TYPE = TYPES[t]; try { localStorage.setItem(TYPE_KEY, t); } catch(e){} }
+      state = normalize(data); saveNow(); refreshType(); toast('Backup imported');
     } catch(err){ toast('That file is not a Portfolio Generator backup'); }
   };
   r.readAsText(fl);
@@ -992,12 +1019,12 @@ $('#clearBtn').onclick = () => {
   state = blank(); saveNow(); render(); window.scrollTo({top:0}); toast('Form cleared');
 };
 $('#sampleBtn').onclick = () => {
-  const hasData = state.profile.name.trim() || state.projects.length;
+  const hasData = state.profile.name.trim() || TYPE.schema.some(s => s.list && state[s.id].length);
   if (hasData && !confirm('Replace your current entries with sample data?')) return;
-  state = normalize({...SAMPLE, design: state.design, resume: state.resume, publish: state.publish}); saveNow(); render();
+  state = normalize({...TYPE.sample, design: state.design, resume: state.resume, publish: state.publish}); saveNow(); render();
   if (currentView === 'design') schedulePreview();
   if (currentView === 'resume') renderResume();
-  toast('Sample student loaded. Edit anything.');
+  toast(TYPE.sampleMsg);
 };
 
 /* ---------- 9. Theme toggle ---------- */
@@ -1055,6 +1082,398 @@ const SAMPLE = {
   workshops: [ {title:'Hands-on PCB Design with KiCad', organizer:'IEEE Student Branch', date:'Aug 2025'} ],
   activities: [ {role:'Technical Secretary', org:'IEEE Student Branch', period:'2025 – Present', desc:'Organised 3 technical events with 200+ participants.'} ],
   more: { languages:['English','Tamil','Hindi'], interests:['Robotics','Chess','Photography'] }
+};
+
+/* ======================================================================
+   10b. PROFESSOR / ACADEMIC: form schema, checks and sample data
+   ====================================================================== */
+const PUB_TYPES = ['Journal','Conference','Book chapter','Book'];
+const PUB_KEY = {'Journal':'j', 'Conference':'c', 'Book chapter':'ch', 'Book':'b'};
+const PROF_SCHEMA = [
+  { id:'profile', title:'Profile', chip:'Profile', icon:'👤', need:'Required',
+    intro:'Shown in the Home section of your portfolio and at the top of your CV.',
+    fields:[
+      {k:'photo', t:'photo', label:'Profile photo'},
+      {k:'name', t:'text', label:'Full name (with title)', req:true, ph:'Dr. Meena Ravichandran'},
+      {k:'designation', t:'text', label:'Designation', req:true, ph:'Associate Professor'},
+      {k:'department', t:'text', label:'Department', req:true, ph:'Department of Electronics and Communication Engineering'},
+      {k:'institution', t:'text', label:'Institution', req:true, ph:'Your college / university'},
+      {k:'city', t:'text', label:'City', ph:'Chennai'},
+      {k:'years', t:'number', label:'Years of experience', ph:'14'},
+      {k:'headline', t:'text', label:'Headline (research areas in one line)', full:true, ph:'Signal processing · VLSI · Edge AI for healthcare', hint:'Shown under your name.'},
+      {k:'bio', t:'textarea', label:'Short bio', rows:5, max:900,
+       ph:'3–5 lines: your current role, research focus, key contributions and what you are working on now. Write in third person or first person, but keep it consistent.'},
+      {k:'availability', t:'text', label:'Open to (badge, optional)', full:true, ph:'Research collaborations, PhD scholars and guest lectures'}
+    ]},
+  { id:'contact', title:'Contact & links', chip:'Contact', icon:'📇', need:'Required',
+    intro:'Email and phone go on your CV. Links appear on your site.',
+    fields:[
+      {k:'email', t:'email', label:'Email', req:true, ph:'name@college.edu.in'},
+      {k:'phone', t:'tel', label:'Phone', ph:'+91 98765 43210'},
+      {k:'website', t:'url', label:'Faculty page / personal website', ph:'https://…'},
+      {k:'linkedin', t:'url', label:'LinkedIn', ph:'https://www.linkedin.com/in/yourname'},
+      {k:'github', t:'url', label:'GitHub (optional)', ph:'https://github.com/yourname', full:true}
+    ]},
+  { id:'ids', title:'Research profiles & metrics', chip:'Research IDs', icon:'🆔', need:'Recommended',
+    intro:'Paste the full link or just the ID. Metrics are typed by you; add the date so readers know when they were taken.',
+    fields:[
+      {k:'scholar', t:'url', label:'Google Scholar profile link', ph:'https://scholar.google.com/citations?user=…'},
+      {k:'orcid', t:'text', label:'ORCID iD', ph:'0000-0002-1825-0097'},
+      {k:'scopus', t:'text', label:'Scopus Author ID', ph:'57000000000 or the Scopus link'},
+      {k:'wos', t:'text', label:'Web of Science ResearcherID', ph:'AAA-1234-2020'},
+      {k:'vidwan', t:'url', label:'Vidwan profile link', ph:'https://vidwan.inflibnet.ac.in/profile/…'},
+      {k:'researchgate', t:'url', label:'ResearchGate link', ph:'https://www.researchgate.net/profile/…'},
+      {k:'citations', t:'number', label:'Total citations', ph:'1240'},
+      {k:'hindex', t:'number', label:'h-index', ph:'15'},
+      {k:'i10', t:'number', label:'i10-index', ph:'22'},
+      {k:'metricsFrom', t:'select', label:'Metrics source', opts:['Google Scholar','Scopus','Web of Science']},
+      {k:'metricsDate', t:'text', label:'Metrics as on', ph:'Oct 2026'}
+    ]},
+  { id:'research', title:'Research focus', chip:'Research', icon:'🔬', need:'Required',
+    fields:[
+      {k:'interests', t:'tags', label:'Research interests', ph:'Signal processing, Approximate computing, Medical imaging…'},
+      {k:'summary', t:'textarea', label:'Research summary (optional)', rows:4, max:700, ph:'What problems your group works on, methods you use, and current directions.'}
+    ]},
+  { id:'publications', title:'Publications', chip:'Publications', icon:'📚', need:'Required',
+    list:true, itemLabel:'publication', titleKey:'title', subKey:'year', paste:true,
+    intro:'Tick "Selected" on your best 5–10 papers: they appear first and go into the 2-page summary CV.',
+    fields:[
+      {k:'type', t:'select', label:'Type', opts:PUB_TYPES},
+      {k:'year', t:'text', label:'Year', ph:'2024'},
+      {k:'title', t:'text', label:'Title', req:true, full:true, ph:'Title of the paper'},
+      {k:'authors', t:'text', label:'Authors (in order, as published)', full:true, ph:'M. Ravichandran, S. Kumar, and P. Rao'},
+      {k:'venue', t:'text', label:'Journal / conference / book', full:true, ph:'IEEE Transactions on …'},
+      {k:'details', t:'text', label:'Volume, issue, pages', ph:'vol. 12, no. 3, pp. 101–110'},
+      {k:'doi', t:'text', label:'DOI', ph:'10.1109/…'},
+      {k:'indexing', t:'select', label:'Indexing', opts:['Scopus','SCI / SCIE','Scopus + SCIE','UGC-CARE','ESCI','Web of Science','Other','Not indexed']},
+      {k:'quartile', t:'select', label:'Quartile', opts:['Q1','Q2','Q3','Q4']},
+      {k:'link', t:'url', label:'Link (if no DOI)', ph:'https://…', full:true},
+      {k:'featured', t:'check', label:'⭐ Selected publication'}
+    ]},
+  { id:'patents', title:'Patents', chip:'Patents', icon:'💡', need:'Optional',
+    list:true, itemLabel:'patent', titleKey:'title', subKey:'status',
+    fields:[
+      {k:'title', t:'text', label:'Patent title', req:true, full:true, ph:'System and method for …'},
+      {k:'number', t:'text', label:'Application / patent no.', ph:'202341012345'},
+      {k:'status', t:'select', label:'Status', opts:['Filed','Published','Granted']},
+      {k:'date', t:'text', label:'Date', ph:'Mar 2024'},
+      {k:'inventors', t:'text', label:'Inventors', ph:'M. Ravichandran, S. Kumar'}
+    ]},
+  { id:'grants', title:'Funded projects & consultancy', chip:'Projects', icon:'💰', need:'Recommended',
+    list:true, itemLabel:'project', titleKey:'title', subKey:'agency',
+    fields:[
+      {k:'title', t:'text', label:'Project title', req:true, full:true, ph:'Low-power wearable ECG monitor for rural health'},
+      {k:'kind', t:'select', label:'Type', opts:['Research grant','Consultancy','Industry collaboration','Seed money','Lab / equipment grant']},
+      {k:'agency', t:'text', label:'Funding agency / client', ph:'AICTE / DST / ANRF / MeitY / Company'},
+      {k:'amount', t:'text', label:'Amount', ph:'Rs. 12.5 lakh'},
+      {k:'role', t:'select', label:'Your role', opts:['PI','Co-PI','Consultant','Coordinator','Member']},
+      {k:'period', t:'text', label:'Period', ph:'2023 – 2025'},
+      {k:'status', t:'select', label:'Status', opts:['Ongoing','Completed','Sanctioned']}
+    ]},
+  { id:'guidance', title:'Research guidance', chip:'Guidance', icon:'🧑‍🎓', need:'Optional',
+    list:true, itemLabel:'scholar', titleKey:'name', subKey:'level',
+    intro:'Ph.D. scholars and PG / UG projects you have guided.',
+    fields:[
+      {k:'name', t:'text', label:'Scholar / student name', req:true, ph:'S. Kumar'},
+      {k:'level', t:'select', label:'Level', opts:['Ph.D.','M.E. / M.Tech','M.Sc / MCA','UG project']},
+      {k:'topic', t:'text', label:'Thesis / project title', full:true, ph:'Energy-efficient routing for body area networks'},
+      {k:'status', t:'select', label:'Status', opts:['Completed','Ongoing','Thesis submitted']},
+      {k:'year', t:'text', label:'Year', ph:'2025'}
+    ]},
+  { id:'teaching', title:'Teaching', chip:'Teaching', icon:'🧑‍🏫', need:'Recommended',
+    fields:[
+      {k:'courses', t:'tags', label:'Courses handled', ph:'Digital Signal Processing, VLSI Design…'},
+      {k:'labs', t:'tags', label:'Laboratories handled', ph:'DSP Lab, Embedded Systems Lab…'},
+      {k:'moocs', t:'tags', label:'Online courses created or certified (NPTEL, SWAYAM…)', ph:'NPTEL: Digital Signal Processing (Elite)…'},
+      {k:'approach', t:'textarea', label:'Teaching approach (optional)', rows:3, max:500, ph:'How you teach: activity-based learning, lab-first, projects…'}
+    ]},
+  { id:'experience', title:'Experience', chip:'Experience', icon:'🏛️', need:'Required',
+    list:true, itemLabel:'position', titleKey:'designation', subKey:'institution',
+    intro:'Newest first. Include industry experience too.',
+    fields:[
+      {k:'designation', t:'text', label:'Designation', req:true, ph:'Associate Professor'},
+      {k:'institution', t:'text', label:'Institution / organisation', ph:'Sample Institute of Technology'},
+      {k:'start', t:'text', label:'From', ph:'Jun 2018'},
+      {k:'end', t:'text', label:'To', ph:'Present'},
+      {k:'points', t:'textarea', label:'Key contributions (optional)', rows:3, full:true, ph:'One point per line:\nSet up the VLSI design lab with industry support\nCoordinated NBA accreditation for the department'}
+    ]},
+  { id:'admin', title:'Administrative roles', chip:'Admin roles', icon:'📋', need:'Optional',
+    list:true, itemLabel:'role', titleKey:'role', subKey:'period',
+    intro:'HoD, NAAC / NBA / IQAC coordinator, R&D cell, exam cell, club coordinator…',
+    fields:[
+      {k:'role', t:'text', label:'Role', req:true, ph:'NBA Coordinator'},
+      {k:'body', t:'text', label:'Department / committee', ph:'Department of ECE'},
+      {k:'period', t:'text', label:'Period', ph:'2021 – Present'},
+      {k:'desc', t:'text', label:'Outcome (optional)', full:true, ph:'Department accredited for 3 years in 2023'}
+    ]},
+  { id:'education', title:'Education', chip:'Education', icon:'🎓', need:'Required',
+    list:true, itemLabel:'degree', titleKey:'degree', subKey:'institution',
+    intro:'Highest degree first.',
+    fields:[
+      {k:'degree', t:'select', label:'Degree', opts:['Ph.D.','Postdoctoral','M.E. / M.Tech','M.Sc / M.S.','MBA / MCA','B.E. / B.Tech','B.Sc','Diploma','Other']},
+      {k:'field', t:'text', label:'Specialisation', ph:'VLSI Design'},
+      {k:'institution', t:'text', label:'Institution', req:true, ph:'College / university'},
+      {k:'university', t:'text', label:'University (if affiliated)', ph:'Anna University'},
+      {k:'year', t:'text', label:'Year', ph:'2016'},
+      {k:'score', t:'text', label:'CGPA / class (optional)', ph:'First class with distinction'},
+      {k:'thesis', t:'text', label:'Thesis title (Ph.D.)', full:true, ph:'Design of low-power …'}
+    ]},
+  { id:'fdps', title:'FDPs, workshops & conferences', chip:'FDPs', icon:'🛠️', need:'Optional',
+    list:true, itemLabel:'programme', titleKey:'title', subKey:'role',
+    intro:'Programmes you organised, were a resource person for, or attended.',
+    fields:[
+      {k:'title', t:'text', label:'Programme title', req:true, full:true, ph:'AICTE ATAL FDP on Edge AI'},
+      {k:'role', t:'select', label:'Your role', opts:['Organised (convener / coordinator)','Resource person','Attended']},
+      {k:'organiser', t:'text', label:'Organised by / at', ph:'IIT Madras / your department'},
+      {k:'sponsor', t:'text', label:'Sponsor (optional)', ph:'AICTE ATAL'},
+      {k:'date', t:'text', label:'Date', ph:'Dec 2025'},
+      {k:'duration', t:'text', label:'Duration', ph:'5 days'}
+    ]},
+  { id:'talks', title:'Invited talks & guest lectures', chip:'Talks', icon:'🎤', need:'Optional',
+    list:true, itemLabel:'talk', titleKey:'title', subKey:'host',
+    fields:[
+      {k:'title', t:'text', label:'Topic', req:true, full:true, ph:'Approximate computing for edge AI'},
+      {k:'kind', t:'select', label:'Type', opts:['Invited talk','Keynote address','Guest lecture','Panel discussion','Session chair']},
+      {k:'event', t:'text', label:'Event', ph:'National Conference on …'},
+      {k:'host', t:'text', label:'Host institution', ph:'XYZ College of Engineering'},
+      {k:'date', t:'text', label:'Date', ph:'Feb 2026'}
+    ]},
+  { id:'service', title:'Academic & professional service', chip:'Service', icon:'🤝', need:'Optional',
+    list:true, itemLabel:'service role', titleKey:'role', subKey:'body',
+    fields:[
+      {k:'role', t:'select', label:'Role', opts:['Reviewer','Editorial board member','Guest editor','Technical programme committee','Session chair','Board of Studies member','Doctoral committee member','External examiner','Question paper setter','Other']},
+      {k:'body', t:'text', label:'Journal / conference / university', req:true, ph:'IEEE Access'},
+      {k:'period', t:'text', label:'Year / period', ph:'2022 – Present'}
+    ]},
+  { id:'awards', title:'Awards & honours', chip:'Awards', icon:'🏆', need:'Optional',
+    list:true, itemLabel:'award', titleKey:'title', subKey:'org',
+    fields:[
+      {k:'title', t:'text', label:'Award', req:true, ph:'Best Faculty Award'},
+      {k:'org', t:'text', label:'Given by', ph:'ISTE Tamil Nadu Section'},
+      {k:'year', t:'text', label:'Year', ph:'2024'},
+      {k:'desc', t:'text', label:'Details (optional)', full:true, ph:'For outstanding contribution to …'}
+    ]},
+  { id:'certifications', title:'Certifications', chip:'Certifications', icon:'📜', need:'Optional',
+    list:true, itemLabel:'certification', titleKey:'name', subKey:'issuer',
+    intro:'No images needed. Just the name and a link where anyone can verify it.',
+    fields:[
+      {k:'name', t:'text', label:'Certification name', req:true, ph:'Deep Learning Specialization'},
+      {k:'issuer', t:'text', label:'Issued by', ph:'NPTEL / Coursera / Cadence…'},
+      {k:'date', t:'text', label:'Date', ph:'Mar 2026'},
+      {k:'link', t:'url', label:'Verification link', ph:'https://…'}
+    ]},
+  { id:'more', title:'Memberships, tools & languages', chip:'More', icon:'🌐', need:'Optional',
+    fields:[
+      {k:'memberships', t:'tags', label:'Professional memberships', ph:'IEEE (Senior Member), ISTE (Life Member), IETE (Fellow)'},
+      {k:'tools', t:'tags', label:'Tools & software', ph:'MATLAB, Cadence Virtuoso, Python, LaTeX'},
+      {k:'languages', t:'tags', label:'Languages known', ph:'English, Tamil'}
+    ]}
+];
+
+const profPubs = d => d.publications.filter(x => x.title.trim());
+const PROF_CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Designation, department & institution', d => d.profile.designation.trim() && d.profile.department.trim() && d.profile.institution.trim()],
+  ['Short bio (80+ characters)', d => d.profile.bio.trim().length >= 80],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['Google Scholar or ORCID', d => URL_RE.test(d.ids.scholar) || /\d{4}-\d{4}-\d{4}-\d{3}[\dX]/i.test(d.ids.orcid)],
+  ['Citation metrics with an "as on" date', d => (+d.ids.citations || +d.ids.hindex) && d.ids.metricsDate.trim()],
+  ['At least 3 research interests', d => d.research.interests.length >= 3],
+  ['Highest degree in Education', d => d.education.some(e => e.institution.trim())],
+  ['Current position in Experience', d => d.experience.some(e => e.designation.trim())],
+  ['At least 5 publications', d => profPubs(d).length >= 5],
+  ['DOI or link on most publications', d => { const p = profPubs(d); return p.length && p.filter(x => x.doi.trim() || URL_RE.test(x.link)).length * 2 >= p.length; }],
+  ['Indexing marked on publications', d => profPubs(d).some(x => x.indexing && x.indexing !== 'Not indexed')],
+  ['At least 2 courses handled', d => d.teaching.courses.length >= 2],
+  ['Projects, patents or guidance', d => filled(d.grants).length + filled(d.patents).length + filled(d.guidance).length >= 1],
+  ['Talks, FDPs or academic service', d => filled(d.talks).length + filled(d.fdps).length + filled(d.service).length >= 1]
+];
+
+/* Research-profile links: accepts a full link or just the ID */
+function researchIds(D){
+  const I = D.ids, out = [];
+  if (safeUrl(I.scholar)) out.push({key:'scholar', label:'Google Scholar', short:'Google Scholar', url:I.scholar.trim(), icon:'cap'});
+  const orc = (I.orcid.match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/i) || [])[0];
+  if (orc || safeUrl(I.orcid)) out.push({key:'orcid', label:'ORCID', short: orc ? 'ORCID: ' + orc.toUpperCase() : 'ORCID', url: orc ? 'https://orcid.org/' + orc.toUpperCase() : I.orcid.trim(), icon:'user'});
+  const sc = (I.scopus.match(/authorId=(\d+)/i) || I.scopus.trim().match(/^(\d{6,})$/) || [])[1];
+  if (sc || safeUrl(I.scopus)) out.push({key:'scopus', label:'Scopus', short: sc ? 'Scopus ID: ' + sc : 'Scopus', url: safeUrl(I.scopus) || 'https://www.scopus.com/authid/detail.uri?authorId=' + sc, icon:'file'});
+  const wos = (I.wos.match(/[A-Z]{1,3}-\d{4}-\d{4}/i) || [])[0];
+  if (wos || safeUrl(I.wos)) out.push({key:'wos', label:'Web of Science', short: wos ? 'ResearcherID: ' + wos.toUpperCase() : 'Web of Science', url: safeUrl(I.wos) || 'https://www.webofscience.com/wos/author/record/' + wos.toUpperCase(), icon:'globe'});
+  if (safeUrl(I.vidwan)) out.push({key:'vidwan', label:'Vidwan', short:'Vidwan', url:I.vidwan.trim(), icon:'award'});
+  if (safeUrl(I.researchgate)) out.push({key:'rg', label:'ResearchGate', short:'ResearchGate', url:I.researchgate.trim(), icon:'globe'});
+  return out;
+}
+const cleanDoi = v => String(v || '').trim().replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i, '').replace(/[.,;]+$/, '');
+const pubYear = x => { const m = String(x.year || '').match(/(19|20)\d{2}/); return m ? +m[0] : -1; };
+function sortedPubs(D){
+  return profPubs(D).map((x, i) => ({...x, type: x.type || 'Journal', _i: i})).sort((a, b) => (pubYear(b) - pubYear(a)) || (a._i - b._i));
+}
+const fmtNum = n => { const v = Number(String(n).replace(/[^\d.]/g, '')); return v ? v.toLocaleString('en-IN') : ''; };
+
+/* ---------- Publication list parser (IEEE, APA and plain lines) ---------- */
+const normTitle = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+function splitRefs(text){
+  const t = String(text || '').replace(/\r/g, '').replace(/ /g, ' ').trim();
+  if (!t) return [];
+  const marker = /^\s*(\[\d{1,3}\]|\d{1,3}[.)](?=\s))\s*/;
+  const lines = t.split('\n');
+  if (lines.filter(l => marker.test(l)).length >= 2 || (lines.length === 1 && marker.test(lines[0]))){
+    const out = [];
+    lines.forEach(l => {
+      if (marker.test(l)) out.push(l.replace(marker, ''));
+      else if (l.trim() && out.length) out[out.length - 1] += ' ' + l.trim();
+      else if (l.trim()) out.push(l.trim());
+    });
+    return out;
+  }
+  const gsMeta = l => / - .*\b(19|20)\d{2}\b/.test(l);
+  const blocks = t.split(/\n\s*\n/).map(b => {
+    const ls = b.split('\n').map(x => x.trim()).filter(Boolean);
+    return ls.length === 2 && gsMeta(ls[1]) && !gsMeta(ls[0]) ? ls[0] + ' \u27C2 ' + ls[1] : ls.join(' ');
+  }).filter(Boolean);
+  if (blocks.length > 1) return blocks;
+  const ls = lines.map(l => l.trim()).filter(Boolean);
+  if (ls.length >= 2 && ls.length % 2 === 0 && ls.every((l, i) => i % 2 ? gsMeta(l) : !gsMeta(l))){
+    const out = [];
+    for (let i = 0; i < ls.length; i += 2) out.push(ls[i] + ' \u27C2 ' + ls[i + 1]);
+    return out;
+  }
+  return ls.filter(l => l.length > 25);
+}
+function parseRef(raw, forcedType){
+  let e = ' ' + raw.replace(/[“”„″]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim() + ' ';
+  const r = {type:'', authors:'', title:'', venue:'', details:'', year:'', doi:'', link:''};
+  const doiM = e.match(/\b(10\.\d{4,9}\/[^\s"<>]+)/i);
+  if (doiM){ r.doi = cleanDoi(doiM[1]); e = e.replace(/,?\s*(doi:\s*|https?:\/\/(dx\.)?doi\.org\/)?10\.\d{4,9}\/[^\s"<>]+/i, ' '); }
+  const urlM = e.match(/https?:\/\/[^\s"<>]+/);
+  if (urlM){ r.link = urlM[0].replace(/[.,;)]+$/, ''); e = e.replace(urlM[0], ' '); }
+  e = e.replace(/\b(Available|Accessed|Online)\s*:?\s*\[?[^\]]*\]?\s*$/i, ' ').replace(/\[Online\]\.?/gi, ' ').replace(/\s+/g, ' ').trim();
+  let rest = '';
+  if (e.includes('\u27C2')){
+    const [tt, meta] = e.split('\u27C2').map(x => x.trim());
+    const dash = meta.indexOf(' - ');
+    r.title = tt.replace(/^\[[A-Z]+\]\s*/, '').replace(/[.]$/, '');
+    r.authors = meta.slice(0, dash).replace(/\u2026/g, '').trim();
+    let v = meta.slice(dash + 3).replace(/\u2026/g, '').trim();
+    const ym = v.match(/,?\s*((19|20)\d{2})\s*(-.*)?$/);
+    if (ym){ r.year = ym[1]; v = v.slice(0, ym.index); }
+    r.venue = v.replace(/[\s,.-]+$/, '');
+    r.type = forcedType && forcedType !== 'auto' ? forcedType : /\b(proc\.|proceedings\b|conference\b|symposium\b|workshop\b)/i.test(v) ? 'Conference' : 'Journal';
+    return r;
+  }
+  let m = e.match(/^(.*?)[,]?\s*"(.{6,}?)[,.]?"\s*,?\s*(.*)$/);
+  if (m){ r.authors = m[1]; r.title = m[2]; rest = m[3]; }
+  else if ((m = e.match(/^(.+?)\s*\((\d{4})[a-z]?(?:,[^)]*)?\)\.?\s*(.+?[?!]?)\.\s+(.*)$/))){
+    r.authors = m[1]; r.year = m[2]; r.title = m[3]; rest = m[4];
+  } else {
+    const parts = e.split(/(?<![A-Z])\.\s+(?=[A-Z0-9"'])/);
+    const authLead = /^((?:[A-Z]\.\s?)+[A-Z][a-zA-Z'-]+(?:,\s*(?:and\s+)?(?:[A-Z]\.\s?)+[A-Z][a-zA-Z'-]+)*(?:,?\s*and\s+(?:[A-Z]\.\s?)+[A-Z][a-zA-Z'-]+)?),\s+(.+)$/;
+    let am;
+    if (parts.length === 2 && (am = parts[0].match(authLead))){ r.authors = am[1]; r.title = am[2]; rest = parts[1]; }
+    else if (parts.length >= 3 && /([A-Z]\.|,)/.test(parts[0]) && parts[0].length < 220){ r.authors = parts[0]; r.title = parts[1]; rest = parts.slice(2).join('. '); }
+    else if (parts.length >= 2){ r.title = parts[0]; rest = parts.slice(1).join('. '); }
+    else r.title = e;
+  }
+  r.authors = r.authors.replace(/^[\s,;]+|[\s,;]+$/g, '').replace(/,?\s+and\s*$/i, '');
+  r.title = r.title.replace(/^[\s"']+|[\s"',.]+$/g, '');
+  rest = rest.replace(/^\s*(in:?|In:?)\s+/, '').replace(/^[\s,.]+|[\s,.]+$/g, '');
+  if (!r.year){ const ys = rest.match(/\b(19[5-9]\d|20[0-4]\d)\b/g) || e.match(/\b(19[5-9]\d|20[0-4]\d)\b/g); if (ys) r.year = ys[ys.length - 1]; }
+  const toks = rest.split(/,\s+/);
+  const stopV = /^(vol\b|vol\.|volume|no\.|no\b|issue|iss\.|pp\.|pp\b|p\.\s|pages|art\.|article|ch\.|chapter|ed\.|eds\.|\(?\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?(\s|$)|isbn|issn|e-?\d)/i;
+  const nameTok = /^([A-Z]\.\s?){1,3}[A-Z][a-z'-]+/;
+  const venue = [], det = [];
+  let stopped = false;
+  toks.forEach((t, i) => {
+    const tt = t.trim();
+    if (!stopped && (stopV.test(tt) || (i > 0 && nameTok.test(tt)))) stopped = true;
+    if (!stopped) venue.push(tt);
+    else if (/^(vol|no|issue|iss|pp|p\.|pages|art|article|ch|chapter|e-?\d|\d+\s*\(\d+\)|\d+[-–]\d+|\d{1,4}$)/i.test(tt) && !/^(19|20)\d{2}$/.test(tt)) det.push(tt.replace(/\.$/, ''));
+  });
+  r.venue = venue.join(', ');
+  r.details = det.join(', ');
+  const all = ' ' + rest + ' ';
+  if (forcedType && forcedType !== 'auto') r.type = forcedType;
+  else if (/\b(ch\.|chapter|eds?\.)\s/i.test(all) || /\(eds?\.\)/i.test(all)) r.type = 'Book chapter';
+  else if (/\b(proc\.|proceedings\b|conference\b|conf\.|symposium\b|workshop\b|congress\b|summit\b)/i.test(all)) r.type = 'Conference';
+  else if (/\b(press|publishers?|publishing|isbn)\b/i.test(all) && !/\b(journal|trans\.|transactions|vol\.)/i.test(all)) r.type = 'Book';
+  else r.type = 'Journal';
+  return r;
+}
+function parseRefs(text, forcedType){
+  return splitRefs(text).map(s => parseRef(s, forcedType)).filter(r => r.title && r.title.length > 3);
+}
+
+/* ---------- Sample professor (fictional) ---------- */
+const PROF_SAMPLE = {
+  profile: { name:'Dr. Meena Ravichandran', designation:'Associate Professor', department:'Department of Electronics and Communication Engineering',
+    institution:'Sample Institute of Engineering and Technology', city:'Chennai', years:'14',
+    headline:'Signal processing · Low-power VLSI · Edge AI for healthcare',
+    bio:'Dr. Meena Ravichandran is an Associate Professor in the Department of ECE with 14 years of teaching and research experience. Her work focuses on low-power signal processing hardware and edge AI for affordable healthcare devices. She has published over 30 papers, holds 3 patents, and leads funded projects on wearable health monitoring. She currently guides five Ph.D. scholars.',
+    availability:'Research collaborations, Ph.D. scholars and guest lectures', photo:'' },
+  contact: { email:'meena.r@example.edu.in', phone:'+91 98765 43210', website:'https://example.edu.in/faculty/meena', linkedin:'https://www.linkedin.com/in/meena-ravichandran-example', github:'' },
+  ids: { scholar:'https://scholar.google.com/citations?user=EXAMPLE123', orcid:'0000-0002-1825-0097', scopus:'57000000000', wos:'AAA-1234-2020', vidwan:'', researchgate:'',
+    citations:'1240', hindex:'15', i10:'22', metricsFrom:'Google Scholar', metricsDate:'Oct 2026' },
+  research: { interests:['Digital signal processing','Approximate computing','Low-power VLSI','Biomedical signal analysis','Edge AI'],
+    summary:'Our group designs energy-efficient hardware for signal processing and machine learning, with a focus on wearable health devices that can run for weeks on a coin cell. Current work explores approximate arithmetic units and tiny neural networks for ECG and EEG analysis.' },
+  publications: [
+    {type:'Journal', year:'2025', title:'Accuracy-configurable approximate multiplier for energy-efficient ECG classification', authors:'M. Ravichandran, S. Kumar, and P. Rao', venue:'IEEE Transactions on Biomedical Circuits and Systems', details:'vol. 19, no. 2, pp. 210–221', doi:'10.1000/tbcas.2025.0001', indexing:'Scopus + SCIE', quartile:'Q1', link:'', featured:true},
+    {type:'Journal', year:'2024', title:'A survey of approximate arithmetic circuits for edge machine learning', authors:'S. Kumar and M. Ravichandran', venue:'Microelectronics Journal', details:'vol. 142, Art. no. 106012', doi:'10.1000/mej.2024.0002', indexing:'Scopus + SCIE', quartile:'Q2', link:'', featured:true},
+    {type:'Conference', year:'2024', title:'Tiny convolutional network for arrhythmia detection on a microcontroller', authors:'A. Devi, M. Ravichandran, and K. Arun', venue:'Proc. IEEE International Symposium on Circuits and Systems (ISCAS)', details:'pp. 1–5', doi:'10.1000/iscas.2024.0003', indexing:'Scopus', quartile:'', link:'', featured:true},
+    {type:'Journal', year:'2023', title:'Low-complexity FIR filter design using common sub-expression sharing for wearable devices', authors:'M. Ravichandran and R. Prakash', venue:'Circuits, Systems, and Signal Processing', details:'vol. 42, no. 7, pp. 4012–4030', doi:'10.1000/cssp.2023.0004', indexing:'SCI / SCIE', quartile:'Q2', link:'', featured:false},
+    {type:'Book chapter', year:'2023', title:'Edge AI for affordable healthcare monitoring', authors:'M. Ravichandran', venue:'Advances in Biomedical Signal Processing, Springer', details:'ch. 5, pp. 101–120', doi:'10.1000/book.2023.0005', indexing:'Scopus', quartile:'', link:'', featured:false},
+    {type:'Conference', year:'2022', title:'Energy-aware routing for wireless body area networks using fuzzy logic', authors:'S. Kumar, M. Ravichandran, and V. Lakshmi', venue:'Proc. International Conference on Communication Systems and Networks', details:'pp. 455–460', doi:'10.1000/comsnets.2022.0006', indexing:'Scopus', quartile:'', link:'', featured:false},
+    {type:'Journal', year:'2021', title:'Denoising EEG signals using adaptive wavelet thresholding', authors:'M. Ravichandran and K. Arun', venue:'Biomedical Signal Processing and Control', details:'vol. 68, Art. no. 102745', doi:'10.1000/bspc.2021.0007', indexing:'Scopus + SCIE', quartile:'Q1', link:'', featured:true},
+    {type:'Journal', year:'2019', title:'Design of a reconfigurable DCT architecture for image compression', authors:'M. Ravichandran', venue:'International Journal of Electronics', details:'vol. 106, no. 9, pp. 1350–1366', doi:'10.1000/ijel.2019.0008', indexing:'SCI / SCIE', quartile:'Q3', link:'', featured:false}
+  ],
+  patents: [
+    {title:'Wearable ECG patch with on-device arrhythmia detection', number:'202441012345', status:'Published', date:'Mar 2024', inventors:'M. Ravichandran, S. Kumar'},
+    {title:'Approximate multiplier circuit with runtime accuracy control', number:'202341098765', status:'Granted', date:'Nov 2025', inventors:'M. Ravichandran, P. Rao'}
+  ],
+  grants: [
+    {title:'Low-power wearable ECG monitor for rural primary health centres', kind:'Research grant', agency:'Sample National Research Agency', amount:'Rs. 28 lakh', role:'PI', period:'2024 – 2027', status:'Ongoing'},
+    {title:'Signal-integrity testing of PCB designs', kind:'Consultancy', agency:'Sample Electronics Pvt Ltd', amount:'Rs. 3.5 lakh', role:'Consultant', period:'2023', status:'Completed'}
+  ],
+  guidance: [
+    {name:'S. Kumar', level:'Ph.D.', topic:'Approximate arithmetic circuits for edge machine learning', status:'Completed', year:'2025'},
+    {name:'A. Devi', level:'Ph.D.', topic:'Tiny neural networks for wearable arrhythmia detection', status:'Ongoing', year:''},
+    {name:'K. Arun', level:'Ph.D.', topic:'Adaptive denoising of EEG for brain-computer interfaces', status:'Ongoing', year:''},
+    {name:'R. Prakash', level:'M.E. / M.Tech', topic:'FIR filter optimisation for hearing aids', status:'Completed', year:'2022'}
+  ],
+  teaching: { courses:['Digital Signal Processing','VLSI Design','Signals and Systems','Biomedical Instrumentation'], labs:['DSP Laboratory','VLSI Design Laboratory'],
+    moocs:['NPTEL: Digital Signal Processing (Elite + Silver)'], approach:'I teach signal processing lab-first: every concept is introduced with a short MATLAB or hardware demo before the theory, and students finish each unit with a mini project.' },
+  experience: [
+    {designation:'Associate Professor', institution:'Sample Institute of Engineering and Technology', start:'Jun 2019', end:'Present', points:'Established the Edge AI and VLSI research lab with industry support\nGuides 5 Ph.D. scholars; 1 awarded'},
+    {designation:'Assistant Professor', institution:'Sample College of Engineering', start:'Jun 2012', end:'May 2019', points:'Taught DSP, VLSI and Signals & Systems to UG and PG students'}
+  ],
+  admin: [
+    {role:'NBA Coordinator', body:'Department of ECE', period:'2021 – Present', desc:'Department accredited for 3 years in 2023'},
+    {role:'R&D Cell Member', body:'Institution', period:'2020 – Present', desc:''}
+  ],
+  education: [
+    {degree:'Ph.D.', field:'Low-power VLSI signal processing', institution:'Sample University', university:'', year:'2018', score:'', thesis:'Design of energy-efficient reconfigurable architectures for biomedical signal processing'},
+    {degree:'M.E. / M.Tech', field:'VLSI Design', institution:'Sample College of Engineering', university:'Anna University', year:'2011', score:'First class with distinction', thesis:''},
+    {degree:'B.E. / B.Tech', field:'Electronics and Communication Engineering', institution:'Sample Engineering College', university:'Anna University', year:'2009', score:'First class', thesis:''}
+  ],
+  fdps: [
+    {title:'AICTE ATAL FDP on Edge AI for Healthcare', role:'Organised (convener / coordinator)', organiser:'Department of ECE', sponsor:'AICTE ATAL', date:'Dec 2025', duration:'5 days'},
+    {title:'Hands-on Workshop on Low-Power VLSI Design', role:'Resource person', organiser:'Sample Engineering College', sponsor:'', date:'Aug 2024', duration:'2 days'},
+    {title:'FDP on Outcome-Based Education', role:'Attended', organiser:'Sample University', sponsor:'', date:'Jan 2023', duration:'5 days'}
+  ],
+  talks: [
+    {title:'Approximate computing for battery-powered AI', kind:'Invited talk', event:'National Conference on Emerging Electronics', host:'Sample College of Technology', date:'Feb 2026'},
+    {title:'Careers in VLSI design', kind:'Guest lecture', event:'IEEE Student Branch Week', host:'Sample Engineering College', date:'Sep 2025'}
+  ],
+  service: [
+    {role:'Reviewer', body:'IEEE Access; Microelectronics Journal', period:'2020 – Present'},
+    {role:'Board of Studies member', body:'Sample Autonomous College (ECE)', period:'2023 – 2026'}
+  ],
+  awards: [
+    {title:'Best Faculty Award', org:'Sample Institute of Engineering and Technology', year:'2024', desc:''},
+    {title:'Best Paper Award', org:'International Conference on Communication Systems and Networks', year:'2022', desc:''}
+  ],
+  certifications: [ {name:'NPTEL: Digital Signal Processing (Elite + Silver)', issuer:'NPTEL', date:'2021', link:'https://nptel.ac.in/'} ],
+  more: { memberships:['IEEE (Senior Member)','ISTE (Life Member)','IETE (Fellow)'], tools:['MATLAB','Cadence Virtuoso','Xilinx Vivado','Python','LaTeX'], languages:['English','Tamil'] }
 };
 
 /* ======================================================================
@@ -1186,6 +1605,23 @@ section{scroll-margin-top:76px}
 .hl-item:last-child{border-bottom:0;padding-bottom:0}
 .hl-item b,.hl-item span{display:block}
 .hl-item p{margin-top:4px}
+.pubs{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.pub{display:flex;flex-direction:column;gap:6px}
+.pubs.clip>.pub:nth-child(n+11){display:none}
+.pub-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pub-top .when{margin-right:auto}
+.pub-t{font-weight:600;font-size:1.04rem;line-height:1.4}
+.idx{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid color-mix(in srgb,var(--accent2) 50%,transparent);color:var(--accent2)}
+.metrics{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:baseline;margin-bottom:24px;font-size:.92rem;color:var(--muted)}
+.metrics b{font-family:var(--hf);font-size:1.5rem;color:var(--accent);margin-right:6px}
+.more-wrap{text-align:center;margin-top:22px}
+.subtle-link{display:inline-flex;gap:6px;align-items:center;color:var(--accent);font-weight:600;font-size:.92rem;margin-top:18px}
+.subh{font-size:1.1rem;margin-bottom:16px;display:flex;gap:8px;align-items:center}
+.subh .i{color:var(--accent)}
+.status{font-size:.78rem;font-weight:700;color:var(--accent2)}
+.cnt{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--accent);margin-left:auto}
+.prose .lead+.lead{margin-top:14px}
+[hidden]{display:none!important}
 .resume-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,var(--soft),var(--surface))}
 .resume-card h3{font-size:1.3rem;margin-bottom:4px}
 .contact{display:grid;gap:22px}
@@ -1495,12 +1931,22 @@ function siteScript(){
   window.addEventListener('scroll', onScroll, {passive: true});
   onScroll();
 
-  var fbtns = document.querySelectorAll('.filters button');
-  fbtns.forEach(function(b){
+  document.querySelectorAll('.filters button').forEach(function(b){
     b.addEventListener('click', function(){
-      var f = b.getAttribute('data-f');
-      fbtns.forEach(function(x){ x.classList.toggle('active', x === b); });
-      document.querySelectorAll('.proj').forEach(function(p){ p.hidden = f !== '*' && p.getAttribute('data-cat') !== f; });
+      var f = b.getAttribute('data-f'), sec = b.closest('section') || document;
+      sec.querySelectorAll('.filters button').forEach(function(x){ x.classList.toggle('active', x === b); });
+      sec.querySelectorAll('[data-cat]').forEach(function(p){
+        p.hidden = f !== '*' && (' ' + p.getAttribute('data-cat') + ' ').indexOf(' ' + f + ' ') < 0;
+      });
+      var clip = sec.querySelector('.clip'), more = sec.querySelector('.more-wrap');
+      if (f !== '*'){ if (clip) clip.classList.remove('clip'); if (more) more.hidden = true; }
+    });
+  });
+  document.querySelectorAll('[data-more]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var sec = b.closest('section'), clip = sec && sec.querySelector('.clip');
+      if (clip) clip.classList.remove('clip');
+      b.parentNode.hidden = true;
     });
   });
 
@@ -1547,17 +1993,33 @@ function siteScript(){
   if (yr) yr.textContent = new Date().getFullYear();
 }
 
-function buildSite(D, ds, opt = {}){
-  const L = ds.layout || 'classic';
-  const N = L === 'sidebar' ? 'side' : (ds.nav || 'topbar');
-  const A = ds.anim || 'lift';
-  const th = THEMES.find(t => t.id === ds.theme) || THEMES[0];
-  const fn = FONTS.find(f => f.id === ds.font) || FONTS[0];
-  const p = D.profile, c = D.contact, sk = D.skills;
+const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function siteKit(){
+  const ext = ' target="_blank" rel="noopener"';
+  const chips = arr => `<ul class="chips">${arr.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  const span = (a, b) => nz(a, b).join(' – ');
+  const bullets = t => {
+    const ls = String(t || '').split('\n').map(s => s.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+    return ls.length ? `<ul class="bullets">${ls.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  };
+  const sec = (id, kicker, title, body) =>
+    `<section id="${id}" class="sec"><div class="wrap"><div class="sh rv"><p class="eyebrow">${kicker}</p><h2>${title}</h2></div><div class="sb">${body}</div></div></section>`;
+  const hlItem = (t, meta, desc, link, linkLabel) =>
+    `<div class="hl-item"><b>${esc(t)}</b>${meta.length ? `<span class="small muted">${meta.map(esc).join(' · ')}</span>` : ''}` +
+    `${desc && desc.trim() ? `<p class="small">${esc(desc)}</p>` : ''}${safeUrl(link) ? `<a class="verify" href="${esc(link)}"${ext}>${ic('ext')}${linkLabel || 'View'}</a>` : ''}</div>`;
+  const entry = (title, org, when, extra) =>
+    `<article class="card entry rv"><div class="entry-head"><div><h3>${esc(title)}</h3>${org ? `<p class="org">${org}</p>` : ''}</div>` +
+    `${when ? `<span class="when">${esc(when)}</span>` : ''}</div>${extra || ''}</article>`;
+  const groupCards = groups => `<div class="hl">${groups.map(([i, t, b]) => `<div class="card rv"><h3 class="gt">${ic(i)}${t}</h3>${b}</div>`).join('')}</div>`;
+  const filters = (items, label) => items.length > 1
+    ? `<div class="filters rv" role="group" aria-label="${esc(label)}"><button class="active" data-f="*" type="button">All</button>${items.map(([k, l]) => `<button data-f="${esc(k)}" type="button">${esc(l)}</button>`).join('')}</div>` : '';
+  return {ext, chips, span, bullets, sec, hlItem, entry, groupCards, filters};
+}
 
-  const name = p.name.trim() || 'Your Name';
-  const first = name.split(/\s+/)[0];
-  const ini = initials(name) || 'Y';
+/* ----- Student sections ----- */
+function studentSite(D, K, opt){
+  const {ext, chips, span, bullets, sec, hlItem, entry, groupCards, filters} = K;
+  const p = D.profile, c = D.contact, sk = D.skills;
   const projects = D.projects.filter(x => x.title.trim()).map((x, i) => ({...x, _i: i}))
     .sort((a, b) => (b.featured - a.featured) || (a._i - b._i));
   const interns = D.internships.filter(x => x.org.trim() || x.role.trim());
@@ -1570,24 +2032,6 @@ function buildSite(D, ds, opt = {}){
   const skillGroups = [['Programming languages','code',sk.languages],['Tools & software','spark',sk.tools],['Domain skills','cap',sk.domain],['Soft skills','user',sk.soft]].filter(g => g[2].length);
   const coursework = D.educationExtra.coursework;
   const skillTotal = skillGroups.reduce((n, g) => n + g[2].length, 0);
-  const email = c.email.trim(), phone = c.phone.trim();
-  const resumeHref = opt.resumeHref || 'assets/resume/resume.pdf';
-  const resumeAttr = opt.resumePending ? ' data-pending' : ' download';
-  const ext = ' target="_blank" rel="noopener"';
-
-  const chips = arr => `<ul class="chips">${arr.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
-  const span = (a, b) => nz(a, b).join(' – ');
-  const bullets = t => {
-    const ls = String(t || '').split('\n').map(s => s.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
-    return ls.length ? `<ul class="bullets">${ls.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
-  };
-  const sec = (id, kicker, title, body) =>
-    `<section id="${id}" class="sec"><div class="wrap"><div class="sh rv"><p class="eyebrow">${kicker}</p><h2>${title}</h2></div><div class="sb">${body}</div></div></section>`;
-  const hlItem = (t, meta, desc, link) =>
-    `<div class="hl-item"><b>${esc(t)}</b>${meta.length ? `<span class="small muted">${meta.map(esc).join(' · ')}</span>` : ''}` +
-    `${desc && desc.trim() ? `<p class="small">${esc(desc)}</p>` : ''}${safeUrl(link) ? `<a class="verify" href="${esc(link)}"${ext}>${ic('ext')}View</a>` : ''}</div>`;
-
-  /* ---- Sections: [id, nav label, icon, html] ---- */
   const S = [];
 
   const facts = [['cap','Studying',nz(p.degree, p.branch).join(' ')],['brief','College',p.college],['spark','Graduating',p.gradYear],['pin','Location',p.city],['globe','Languages',D.more.languages.join(', ')]]
@@ -1598,78 +2042,259 @@ function buildSite(D, ds, opt = {}){
       `${D.more.interests.length ? `<p class="label">Interests</p>${chips(D.more.interests)}` : ''}</div>` +
       `${facts.length ? `<div class="card facts rv">${facts.map(([i, l, v]) => `<div class="fact">${ic(i)}<div><b>${l}</b>${esc(v)}</div></div>`).join('')}</div>` : ''}</div>`)]);
   }
-
   if (skillGroups.length || coursework.length){
     S.push(['skills','Skills','spark', sec('skills','Skills','What I work with',
       `<div class="skillgroups">${skillGroups.map(([l, i, a]) => `<div class="card rv"><h3>${ic(i)}${l}</h3>${chips(a)}</div>`).join('')}` +
       `${coursework.length ? `<div class="card rv"><h3>${ic('file')}Relevant coursework</h3>${chips(coursework)}</div>` : ''}</div>`)]);
   }
-
   if (projects.length){
     const cats = [...new Set(projects.map(x => x.category).filter(Boolean))];
-    const filters = projects.length > 3 && cats.length > 1
-      ? `<div class="filters rv" role="group" aria-label="Filter projects"><button class="active" data-f="*" type="button">All</button>${cats.map(k => `<button data-f="${esc(k)}" type="button">${esc(k.replace(/ project$/, ''))}</button>`).join('')}</div>` : '';
+    const fl = projects.length > 3 ? filters(cats.map(k => [slug(k), k.replace(/ project$/, '')]), 'Filter projects') : '';
     const cards = projects.map(x => {
       const meta = nz(x.role, x.team ? (x.team === '1' ? 'Solo project' : x.team + '-member team') : '', x.duration).map(esc).join(' · ');
       const links = (safeUrl(x.github) ? `<a href="${esc(x.github)}"${ext}>${ic('code')}Code</a>` : '') + (safeUrl(x.demo) ? `<a href="${esc(x.demo)}"${ext}>${ic('ext')}Live demo</a>` : '');
-      return `<article class="card proj rv" data-cat="${esc(x.category)}"><div class="proj-top">${x.category ? `<span class="tag">${esc(x.category)}</span>` : '<span></span>'}${x.featured ? '<span class="star">★ Featured</span>' : ''}</div>` +
+      return `<article class="card proj rv" data-cat="${esc(slug(x.category))}"><div class="proj-top">${x.category ? `<span class="tag">${esc(x.category)}</span>` : '<span></span>'}${x.featured ? '<span class="star">★ Featured</span>' : ''}</div>` +
         `<h3>${esc(x.title)}</h3>${x.description.trim() ? `<p class="muted">${esc(x.description)}</p>` : ''}` +
         `${x.outcome.trim() ? `<p class="outcome">${ic('check')}<span>${esc(x.outcome)}</span></p>` : ''}${x.tech.length ? chips(x.tech) : ''}` +
         `${meta ? `<p class="small muted">${meta}</p>` : ''}${links ? `<div class="plinks">${links}</div>` : ''}</article>`;
     }).join('');
-    S.push(['projects','Projects','folder', sec('projects','Projects','Things I have built', filters + `<div class="grid">${cards}</div>`)]);
+    S.push(['projects','Projects','folder', sec('projects','Projects','Things I have built', fl + `<div class="grid">${cards}</div>`)]);
   }
-
   if (interns.length){
     S.push(['experience','Experience','brief', sec('experience','Experience','Internships & training',
-      `<div class="list">${interns.map(x => `<article class="card entry rv"><div class="entry-head"><div><h3>${esc(x.role || x.org)}</h3>` +
-      `<p class="org">${nz(x.role ? x.org : '', x.location, x.mode).map(esc).join(' · ')}</p></div>` +
-      `${span(x.start, x.end) ? `<span class="when">${esc(span(x.start, x.end))}</span>` : ''}</div>${bullets(x.points)}` +
-      `${safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('award')}Certificate</a>` : ''}</article>`).join('')}</div>`)]);
+      `<div class="list">${interns.map(x => entry(x.role || x.org, nz(x.role ? x.org : '', x.location, x.mode).map(esc).join(' · '), span(x.start, x.end),
+        bullets(x.points) + (safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('award')}Certificate</a>` : ''))).join('')}</div>`)]);
   }
-
   if (edu.length){
     S.push(['education','Education','cap', sec('education','Education','Where I study',
       `<div class="list">${edu.map(e => {
         const lvl = e.level === 'Degree (UG)' && nz(p.degree, p.branch).length ? nz(p.degree, p.branch).join(' ') : e.level;
         const sc = e.score.trim() ? (e.scoreType === 'Percentage' ? e.score.trim().replace(/%$/, '') + '%' : e.scoreType ? e.scoreType + ' ' + e.score.trim() : e.score.trim()) : '';
-        return `<article class="card entry rv"><div class="entry-head"><div><h3>${esc(e.institution)}</h3><p class="org">${nz(lvl, e.board).map(esc).join(' · ')}</p></div>` +
-          `${span(e.start, e.end) ? `<span class="when">${esc(span(e.start, e.end))}</span>` : ''}</div>${sc ? `<span class="score">${esc(sc)}</span>` : ''}</article>`;
+        return entry(e.institution, nz(lvl, e.board).map(esc).join(' · '), span(e.start, e.end), sc ? `<span class="score">${esc(sc)}</span>` : '');
       }).join('')}</div>`)]);
   }
-
   if (certs.length){
     S.push(['certifications','Certificates','award', sec('certifications','Certificates','Certifications',
       `<div class="grid">${certs.map(x => `<article class="card cert rv"><h3>${esc(x.name)}</h3><p class="small muted">${nz(x.issuer, x.date).map(esc).join(' · ')}</p>` +
       `${safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('check')}Verify</a>` : ''}</article>`).join('')}</div>`)]);
   }
-
   const groups = [];
   if (awards.length) groups.push(['trophy','Awards & achievements', awards.map(x => hlItem(x.title, nz(x.org, x.date), x.desc)).join('')]);
   if (papers.length) groups.push(['file','Papers & presentations', papers.map(x => hlItem(x.title, nz(x.type, x.venue, x.date), '', x.link)).join('')]);
   if (acts.length) groups.push(['user','Leadership & activities', acts.map(x => hlItem(nz(x.role, x.org).join(', '), nz(x.period), x.desc)).join('')]);
   if (works.length) groups.push(['spark','Workshops & seminars', works.map(x => hlItem(x.title, nz(x.organizer, x.date))).join('')]);
-  if (groups.length){
-    S.push(['achievements','Awards','trophy', sec('achievements','Highlights','Achievements & activities',
-      `<div class="hl">${groups.map(([i, t, b]) => `<div class="card rv"><h3 class="gt">${ic(i)}${t}</h3>${b}</div>`).join('')}</div>`)]);
+  if (groups.length) S.push(['achievements','Awards','trophy', sec('achievements','Highlights','Achievements & activities', groupCards(groups))]);
+
+  const lines = [];
+  if (p.city.trim()) lines.push(['pin', esc(p.city)]);
+  if (safeUrl(c.linkedin)) lines.push(['user', `<a href="${esc(c.linkedin)}"${ext}>LinkedIn</a>`]);
+  if (safeUrl(c.github)) lines.push(['code', `<a href="${esc(c.github)}"${ext}>GitHub</a>`]);
+  if (safeUrl(c.website)) lines.push(['globe', `<a href="${esc(c.website)}"${ext}>Website</a>`]);
+  const socials = [];
+  if (c.email.trim()) socials.push(['mailto:' + c.email.trim(), 'mail', 'Email']);
+  if (safeUrl(c.linkedin)) socials.push([c.linkedin, 'user', 'LinkedIn']);
+  if (safeUrl(c.github)) socials.push([c.github, 'code', 'GitHub']);
+  if (safeUrl(c.website)) socials.push([c.website, 'globe', 'Website']);
+  return {
+    sections: S,
+    hero: {
+      eyebrow: "Hi, I'm", headline: p.headline,
+      meta: nz(nz(p.degree, p.branch).join(' '), p.year, p.college, p.city).map(esc).join(' · '),
+      badge: p.openToWork ? 'Open to internships &amp; jobs' : '',
+      primary: projects.length ? ['#projects', 'View projects'] : null,
+      cvLabel: 'Resume',
+      stats: [[projects.length,'Projects'],[interns.length,'Internships'],[certs.length,'Certifications'],[skillTotal,'Skills']].filter(s => s[0] > 0),
+      socials
+    },
+    resume: {nav:'Resume', kicker:'Resume', title:'Get my resume', card: 'Resume', sub: `One page · ATS-friendly PDF${p.gradYear.trim() ? ` · Graduating ${esc(p.gradYear)}` : ''}`},
+    contactLead: p.openToWork ? "I'm open to internships and entry-level roles. I'd love to hear from you." : 'Have a question or an opportunity? Get in touch.',
+    contactLines: lines,
+    profileLinks: D.profiles.filter(x => safeUrl(x.url)).map(x => [x.url, /YouTube|Blog|Behance|Dribbble/.test(x.platform) ? 'globe' : 'code', x.platform || 'Profile']),
+    desc: p.headline.trim() || p.objective.trim()
+  };
+}
+
+/* ----- Professor / academic sections ----- */
+function professorSite(D, K, opt){
+  const {ext, chips, span, bullets, sec, hlItem, entry, groupCards, filters} = K;
+  const p = D.profile, c = D.contact, I = D.ids, Rs = D.research, T = D.teaching, Mo = D.more;
+  const pubs = sortedPubs(D);
+  const patents = D.patents.filter(x => x.title.trim());
+  const grants = D.grants.filter(x => x.title.trim());
+  const guide = D.guidance.filter(x => x.name.trim() || x.topic.trim());
+  const exp = D.experience.filter(x => x.designation.trim() || x.institution.trim());
+  const admin = D.admin.filter(x => x.role.trim());
+  const edu = D.education.filter(x => x.institution.trim() || x.degree.trim());
+  const fdps = D.fdps.filter(x => x.title.trim());
+  const talks = D.talks.filter(x => x.title.trim());
+  const service = D.service.filter(x => x.role.trim() || x.body.trim());
+  const awards = D.awards.filter(x => x.title.trim());
+  const certs = D.certifications.filter(x => x.name.trim());
+  const ids = researchIds(D);
+  const scholar = ids.find(x => x.key === 'scholar');
+  const phd = guide.filter(x => x.level === 'Ph.D.');
+  const S = [];
+
+  /* About */
+  const facts = [['brief','Designation',p.designation],['cap','Department',p.department],['home','Institution',p.institution],
+    ['spark','Experience', +p.years ? `${p.years}+ years` : ''],['pin','Location',p.city],['globe','Languages',Mo.languages.join(', ')]]
+    .filter(f => String(f[2]).trim());
+  if (p.bio.trim() || facts.length || Rs.interests.length){
+    S.push(['about','About','user', sec('about','About','Profile',
+      `<div class="about"><div class="rv prose">${p.bio.trim() ? esc(p.bio).split(/\n\s*\n|\n/).map(x => `<p class="lead">${x}</p>`).join('') : ''}` +
+      `${Rs.interests.length ? `<p class="label">Research interests</p>${chips(Rs.interests)}` : ''}</div>` +
+      `${facts.length ? `<div class="card facts rv">${facts.map(([i, l, v]) => `<div class="fact">${ic(i)}<div><b>${l}</b>${esc(v)}</div></div>`).join('')}</div>` : ''}</div>`)]);
   }
 
-  S.push(['resume','Resume','file', sec('resume','Resume','Get my resume',
-    `<div class="card resume-card rv"><div><h3>${esc(name)} · Resume</h3><p class="muted">One page · ATS-friendly PDF${p.gradYear.trim() ? ` · Graduating ${esc(p.gradYear)}` : ''}</p></div>` +
-    `<a class="btn primary" href="${esc(resumeHref)}"${resumeAttr}>${ic('down')}Download PDF</a></div>`)]);
+  /* Research: summary, funded projects, patents */
+  if (Rs.summary.trim() || grants.length || patents.length){
+    let b = Rs.summary.trim() ? `<p class="lead rv" style="max-width:760px;margin-bottom:26px">${esc(Rs.summary)}</p>` : '';
+    if (grants.length){
+      b += `<h3 class="subh rv">${ic('brief')}Funded projects &amp; consultancy</h3><div class="grid">${grants.map(x =>
+        `<article class="card proj rv"><div class="proj-top"><span class="tag">${esc(x.kind || 'Project')}</span>${x.status ? `<span class="status">${esc(x.status)}</span>` : ''}</div>` +
+        `<h3>${esc(x.title)}</h3><p class="muted">${nz(x.agency, x.amount).map(esc).join(' · ')}</p>` +
+        `${nz(x.role && 'Role: ' + x.role, x.period).length ? `<p class="small muted">${nz(x.role && 'Role: ' + x.role, x.period).map(esc).join(' · ')}</p>` : ''}</article>`).join('')}</div>`;
+    }
+    if (patents.length){
+      b += `<h3 class="subh rv"${grants.length ? ' style="margin-top:34px"' : ''}>${ic('spark')}Patents</h3><div class="grid">${patents.map(x =>
+        `<article class="card proj rv"><div class="proj-top"><span class="tag">${esc(x.status || 'Patent')}</span>${x.date ? `<span class="small muted">${esc(x.date)}</span>` : ''}</div>` +
+        `<h3>${esc(x.title)}</h3>${x.number.trim() ? `<p class="small muted">No. ${esc(x.number)}</p>` : ''}${x.inventors.trim() ? `<p class="small muted">Inventors: ${esc(x.inventors)}</p>` : ''}</article>`).join('')}</div>`;
+    }
+    S.push(['research','Research','spark', sec('research','Research', grants.length ? 'Research &amp; funded projects' : 'Research', b)]);
+  }
 
+  /* Publications */
+  if (pubs.length){
+    const types = PUB_TYPES.filter(t => pubs.some(x => x.type === t));
+    const anySel = pubs.some(x => x.featured);
+    const fl = pubs.length > 4 ? filters((anySel ? [['sel', '★ Selected']] : []).concat(types.map(t => [PUB_KEY[t], t + 's'])), 'Filter publications') : '';
+    const metrics = nz(fmtNum(I.citations) && `<span><b>${fmtNum(I.citations)}</b>Citations</span>`, +I.hindex && `<span><b>${esc(I.hindex)}</b>h-index</span>`, +I.i10 && `<span><b>${esc(I.i10)}</b>i10-index</span>`, `<span><b>${pubs.length}</b>Publications</span>`);
+    const src = nz(I.metricsFrom, I.metricsDate && 'as on ' + I.metricsDate).join(', ');
+    const items = pubs.map(x => {
+      const doi = cleanDoi(x.doi);
+      const ix = nz(x.indexing && x.indexing !== 'Not indexed' ? x.indexing : '', x.quartile);
+      const links = (doi ? `<a href="https://doi.org/${esc(doi)}"${ext}>${ic('ext')}DOI</a>` : '') + (safeUrl(x.link) ? `<a href="${esc(x.link)}"${ext}>${ic('file')}Link</a>` : '');
+      return `<li class="card pub rv" data-cat="${PUB_KEY[x.type] || 'j'}${x.featured ? ' sel' : ''}"><div class="pub-top"><span class="tag">${esc(x.type || 'Journal')}</span>` +
+        `${pubYear(x) > 0 ? `<span class="when">${pubYear(x)}</span>` : ''}${ix.map(t => `<span class="idx">${esc(t)}</span>`).join('')}${x.featured ? '<span class="star">★ Selected</span>' : ''}</div>` +
+        `<p class="pub-t">${esc(x.title)}</p>${x.authors.trim() ? `<p class="small muted">${esc(x.authors)}</p>` : ''}` +
+        `${nz(x.venue, x.details).length ? `<p class="small"><i>${esc(x.venue)}</i>${x.details.trim() ? (x.venue.trim() ? ', ' : '') + esc(x.details) : ''}</p>` : ''}` +
+        `${links ? `<div class="plinks">${links}</div>` : ''}</li>`;
+    }).join('');
+    const clip = pubs.length > 10;
+    S.push(['publications','Publications','file', sec('publications','Publications','Research publications',
+      `<div class="metrics rv">${metrics.join('')}${src ? `<span class="small muted">${esc(src)}</span>` : ''}</div>` + fl +
+      `<ol class="pubs${clip ? ' clip' : ''}">${items}</ol>` +
+      `${clip ? `<div class="more-wrap"><button class="btn ghost" type="button" data-more>Show all ${pubs.length} publications</button></div>` : ''}` +
+      `${scholar ? `<p style="text-align:center"><a class="subtle-link" href="${esc(scholar.url)}"${ext}>${ic('ext')}Full list on Google Scholar</a></p>` : ''}`)]);
+  }
+
+  /* Teaching */
+  if (T.courses.length || T.labs.length || T.moocs.length || T.approach.trim()){
+    const g = [['Courses handled','cap',T.courses],['Laboratories','spark',T.labs],['Online courses & MOOCs','globe',T.moocs]].filter(x => x[2].length);
+    S.push(['teaching','Teaching','cap', sec('teaching','Teaching','Courses &amp; teaching',
+      `${T.approach.trim() ? `<p class="lead rv" style="max-width:760px;margin-bottom:26px">${esc(T.approach)}</p>` : ''}` +
+      `<div class="skillgroups">${g.map(([l, i, a]) => `<div class="card rv"><h3>${ic(i)}${l}</h3>${chips(a)}</div>`).join('')}</div>`)]);
+  }
+
+  /* Guidance */
+  if (guide.length){
+    const grp = [];
+    const add = (title, icon, list) => { if (list.length) grp.push([icon, `${title} <span class="cnt">${list.length}</span>`, list.map(x => hlItem(x.name || x.topic, nz(x.level !== 'Ph.D.' ? x.level : '', x.status, x.year), x.name ? x.topic : '')).join('')]); };
+    add('Ph.D. · Completed', 'award', phd.filter(x => x.status === 'Completed'));
+    add('Ph.D. · Ongoing', 'spark', phd.filter(x => x.status !== 'Completed'));
+    add('PG &amp; UG projects', 'user', guide.filter(x => x.level !== 'Ph.D.'));
+    S.push(['guidance','Guidance','user', sec('guidance','Guidance','Research guidance', groupCards(grp))]);
+  }
+
+  /* Experience + admin */
+  if (exp.length || admin.length){
+    let b = exp.length ? `<div class="list">${exp.map(x => entry(x.designation || x.institution, x.designation ? esc(x.institution) : '', span(x.start, x.end), bullets(x.points))).join('')}</div>` : '';
+    if (admin.length) b += `<div style="margin-top:${exp.length ? 26 : 0}px">${groupCards([['brief','Administrative responsibilities', admin.map(x => hlItem(x.role, nz(x.body, x.period), x.desc)).join('')]])}</div>`;
+    S.push(['experience','Experience','brief', sec('experience','Experience', exp.length ? 'Academic experience' : 'Responsibilities', b)]);
+  }
+
+  /* Education */
+  if (edu.length){
+    S.push(['education','Education','cap', sec('education','Education','Qualifications',
+      `<div class="list">${edu.map(e => entry(nz(e.degree, e.field).join(e.degree && e.field ? ' in ' : ''), nz(e.institution, e.university).map(esc).join(' · '), e.year,
+        (e.thesis.trim() ? `<p class="small" style="margin-top:10px"><b>Thesis:</b> ${esc(e.thesis)}</p>` : '') + (e.score.trim() ? `<span class="score">${esc(e.score)}</span>` : ''))).join('')}</div>`)]);
+  }
+
+  /* Highlights */
+  const groups = [];
+  if (awards.length) groups.push(['trophy','Awards &amp; honours', awards.map(x => hlItem(x.title, nz(x.org, x.year), x.desc)).join('')]);
+  if (talks.length) groups.push(['spark','Invited talks &amp; lectures', talks.map(x => hlItem(x.title, nz(x.kind, x.event, x.host, x.date))).join('')]);
+  const org = fdps.filter(x => /^Organised/.test(x.role)), rp = fdps.filter(x => x.role === 'Resource person'), att = fdps.filter(x => x.role === 'Attended' || !x.role);
+  if (org.length) groups.push(['cap','Programmes organised', org.map(x => hlItem(x.title, nz(x.sponsor, x.organiser, x.duration, x.date))).join('')]);
+  if (rp.length) groups.push(['user','Resource person', rp.map(x => hlItem(x.title, nz(x.organiser, x.duration, x.date))).join('')]);
+  if (service.length) groups.push(['check','Academic service', service.map(x => hlItem(x.role, nz(x.body, x.period))).join('')]);
+  if (att.length) groups.push(['file','Programmes attended', att.map(x => hlItem(x.title, nz(x.organiser, x.duration, x.date))).join('')]);
+  if (certs.length) groups.push(['award','Certifications', certs.map(x => hlItem(x.name, nz(x.issuer, x.date), '', x.link, 'Verify')).join('')]);
+  if (Mo.memberships.length) groups.push(['globe','Professional memberships', chips(Mo.memberships)]);
+  if (Mo.tools.length) groups.push(['code','Tools &amp; software', chips(Mo.tools)]);
+  if (groups.length) S.push(['highlights','Highlights','trophy', sec('highlights','Highlights','Talks, service &amp; recognition', groupCards(groups))]);
+
+  /* Contact data */
+  const lines = [];
+  if (nz(p.institution, p.city).length) lines.push(['home', esc(nz(p.department, p.institution, p.city).join(', '))]);
+  if (safeUrl(c.website)) lines.push(['globe', `<a href="${esc(c.website)}"${ext}>Faculty page</a>`]);
+  if (safeUrl(c.linkedin)) lines.push(['user', `<a href="${esc(c.linkedin)}"${ext}>LinkedIn</a>`]);
+  if (safeUrl(c.github)) lines.push(['code', `<a href="${esc(c.github)}"${ext}>GitHub</a>`]);
+  const socials = [];
+  if (c.email.trim()) socials.push(['mailto:' + c.email.trim(), 'mail', 'Email']);
+  ids.filter(x => ['scholar','orcid','scopus'].includes(x.key)).forEach(x => socials.push([x.url, x.icon, x.label]));
+  if (safeUrl(c.linkedin)) socials.push([c.linkedin, 'user', 'LinkedIn']);
+  const stats = [[+p.years ? p.years + '+' : 0, 'Years'], [pubs.length, 'Publications'], [fmtNum(I.citations), 'Citations'], [+I.hindex ? I.hindex : 0, 'h-index'],
+    [patents.length, 'Patents'], [grants.length, 'Funded projects'], [phd.length, 'Ph.D. scholars']].filter(s => s[0] && s[0] !== '0').slice(0, 5);
+  return {
+    sections: S,
+    hero: {
+      eyebrow: esc(p.designation || 'Faculty'), headline: p.headline,
+      meta: nz(p.department, p.institution, p.city).map(esc).join(' · '),
+      badge: p.availability.trim() ? 'Open to ' + esc(p.availability.trim().replace(/^open to\s*/i, '').replace(/^[A-Z](?=[a-z])/, ch => ch.toLowerCase())) : '',
+      primary: pubs.length ? ['#publications', 'View publications'] : null,
+      cvLabel: 'CV', stats, socials
+    },
+    resume: {nav:'CV', kicker:'Curriculum vitae', title:'Download my CV', card: 'Curriculum Vitae', sub: 'Full academic CV and a 2-page summary · PDF'},
+    contactLead: p.availability.trim() ? `I welcome ${esc(p.availability.trim().replace(/^open to\s*/i, '').replace(/^./, ch => ch.toLowerCase()))}. Feel free to get in touch.` : 'For research collaboration, guest lectures or academic queries, please get in touch.',
+    contactLines: lines,
+    profileLinks: ids.map(x => [x.url, x.icon, x.label]),
+    profileLabel: 'Research profiles',
+    desc: nz(p.designation && p.institution ? `${p.designation}, ${p.institution}` : '', p.headline).join('. ') || p.bio.trim()
+  };
+}
+
+function buildSite(D, ds, opt = {}){
+  const L = ds.layout || 'classic';
+  const N = L === 'sidebar' ? 'side' : (ds.nav || 'topbar');
+  const A = ds.anim || 'lift';
+  const th = THEMES.find(t => t.id === ds.theme) || THEMES[0];
+  const fn = FONTS.find(f => f.id === ds.font) || FONTS[0];
+  const p = D.profile, c = D.contact;
+  const name = p.name.trim() || 'Your Name';
+  const ini = initials(name.replace(/^(dr|prof|mr|mrs|ms)\.?\s+/i, '')) || 'Y';
+  const K = siteKit(), {ext, sec} = K;
+  const parts = (D.userType === 'professor' ? professorSite : studentSite)(D, K, opt);
+  const S = parts.sections.slice();
+  const email = c.email.trim(), phone = c.phone.trim();
+  const resumes = opt.resumes || TYPES[D.userType || 'student'].resume.kinds.map(k => ({href:'#', label:k.label, pending:true}));
+  const rAttr = r => r.pending ? ' data-pending' : ' download';
+
+  /* Resume / CV */
+  S.push(['resume', parts.resume.nav, 'file', sec('resume', parts.resume.kicker, parts.resume.title,
+    `<div class="card resume-card rv"><div><h3>${esc(name)} · ${parts.resume.card}</h3><p class="muted">${parts.resume.sub}</p></div>` +
+    `<div class="ctas" style="margin:0">${resumes.map((r, i) => `<a class="btn ${i ? 'ghost' : 'primary'}" href="${esc(r.href)}"${rAttr(r)}>${ic('down')}${esc(resumes.length > 1 ? r.label : 'Download PDF')}</a>`).join('')}</div></div>`)]);
+
+  /* Contact */
   const cl = [];
   if (email) cl.push(['mail', `<a href="mailto:${esc(email)}">${esc(email)}</a>`]);
   if (phone && !opt.hidePhone) cl.push(['phone', `<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">${esc(phone)}</a>`]);
-  if (p.city.trim()) cl.push(['pin', esc(p.city)]);
-  if (safeUrl(c.linkedin)) cl.push(['user', `<a href="${esc(c.linkedin)}"${ext}>LinkedIn</a>`]);
-  if (safeUrl(c.github)) cl.push(['code', `<a href="${esc(c.github)}"${ext}>GitHub</a>`]);
-  if (safeUrl(c.website)) cl.push(['globe', `<a href="${esc(c.website)}"${ext}>Website</a>`]);
-  const profs = D.profiles.filter(x => safeUrl(x.url));
+  cl.push(...parts.contactLines);
+  const profs = parts.profileLinks;
   S.push(['contact','Contact','mail', sec('contact','Contact', "Let's talk",
-    `<div class="contact"><div class="rv"><p class="lead" style="margin-bottom:12px">${p.openToWork ? "I'm open to internships and entry-level roles. I'd love to hear from you." : 'Have a question or an opportunity? Get in touch.'}</p>` +
+    `<div class="contact"><div class="rv"><p class="lead" style="margin-bottom:12px">${parts.contactLead}</p>` +
     `${cl.map(([i, v]) => `<div class="cline">${ic(i)}<span>${v}</span></div>`).join('')}` +
-    `${profs.length ? `<p class="label">Also find me on</p><div class="profiles">${profs.map(x => `<a class="social" href="${esc(x.url)}"${ext}>${ic(/YouTube|Blog|Behance|Dribbble/.test(x.platform) ? 'globe' : 'code')}<span>${esc(x.platform || 'Profile')}</span></a>`).join('')}</div>` : ''}</div>` +
+    `${profs.length ? `<p class="label">${parts.profileLabel || 'Also find me on'}</p><div class="profiles">${profs.map(([u, i, l]) => `<a class="social" href="${esc(u)}"${ext}>${ic(i)}<span>${esc(l)}</span></a>`).join('')}</div>` : ''}</div>` +
     `${email ? `<form class="card cf rv" id="cform" data-to="${esc(email)}"><div><label for="cf-n">Your name</label><input id="cf-n" name="name" autocomplete="name" required></div>` +
     `<div><label for="cf-m">Message</label><textarea id="cf-m" name="message" rows="5" required></textarea></div>` +
     `<button class="btn primary" type="submit">${ic('send')}Send message</button><p class="small muted">Opens your email app with the message ready to send.</p></form>` : ''}</div>`)]);
@@ -1683,20 +2308,15 @@ function buildSite(D, ds, opt = {}){
     `<button class="ib burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false">${ic('menu')}</button></div></header>`;
 
   /* ---- Hero ---- */
-  const socials = [];
-  if (email) socials.push(['mailto:' + email, 'mail', 'Email']);
-  if (safeUrl(c.linkedin)) socials.push([c.linkedin, 'user', 'LinkedIn']);
-  if (safeUrl(c.github)) socials.push([c.github, 'code', 'GitHub']);
-  if (safeUrl(c.website)) socials.push([c.website, 'globe', 'Website']);
-  const socialHTML = socials.map(([u, i, l]) => `<a class="social" href="${esc(u)}"${u.startsWith('mailto') ? '' : ext} aria-label="${l}">${ic(i)}<span>${l}</span></a>`).join('');
-  const metaLine = nz(nz(p.degree, p.branch).join(' '), p.year, p.college, p.city).map(esc).join(' · ');
-  const stats = [[projects.length,'Projects'],[interns.length,'Internships'],[certs.length,'Certifications'],[skillTotal,'Skills']].filter(s => s[0] > 0);
+  const H = parts.hero;
+  const socialHTML = H.socials.slice(0, 5).map(([u, i, l]) => `<a class="social" href="${esc(u)}"${u.startsWith('mailto') ? '' : ext} aria-label="${esc(l)}">${ic(i)}<span>${esc(l)}</span></a>`).join('');
   const photo = opt.photo ? `<img src="${esc(opt.photo)}" alt="${esc(name)}" width="480" height="480">` : `<span class="initials">${esc(ini)}</span>`;
+  const r0 = resumes[0];
   const hero = `<section id="home" class="hero"><div class="wrap hero-inner"><div class="hero-photo rv">${photo}</div>` +
-    `<div class="hero-text rv"><p class="eyebrow">Hi, I'm</p><h1>${esc(name)}</h1>${p.headline.trim() ? `<p class="headline">${esc(p.headline)}</p>` : ''}` +
-    `${metaLine ? `<p class="meta">${metaLine}</p>` : ''}${p.openToWork ? '<span class="badge"><i class="dot"></i>Open to internships &amp; jobs</span>' : ''}` +
-    `<div class="ctas">${projects.length ? '<a class="btn primary" href="#projects">View projects</a>' : ''}<a class="btn ${projects.length ? 'ghost' : 'primary'}" href="${esc(resumeHref)}"${resumeAttr}>${ic('down')}Resume</a></div></div>` +
-    `${stats.length ? `<div class="hero-stats rv">${stats.map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('')}</div>` : ''}` +
+    `<div class="hero-text rv"><p class="eyebrow">${H.eyebrow}</p><h1>${esc(name)}</h1>${H.headline.trim() ? `<p class="headline">${esc(H.headline)}</p>` : ''}` +
+    `${H.meta ? `<p class="meta">${H.meta}</p>` : ''}${H.badge ? `<span class="badge"><i class="dot"></i>${H.badge}</span>` : ''}` +
+    `<div class="ctas">${H.primary ? `<a class="btn primary" href="${H.primary[0]}">${H.primary[1]}</a>` : ''}<a class="btn ${H.primary ? 'ghost' : 'primary'}" href="${esc(r0.href)}"${rAttr(r0)}>${ic('down')}${H.cvLabel}</a></div></div>` +
+    `${H.stats.length ? `<div class="hero-stats rv">${H.stats.map(([n, l]) => `<div class="stat"><b>${esc(n)}</b><span>${l}</span></div>`).join('')}</div>` : ''}` +
     `${socialHTML ? `<div class="hero-social rv">${socialHTML}</div>` : ''}${N === 'side' ? navHTML : ''}</div></section>`;
 
   /* ---- CSS ---- */
@@ -1710,7 +2330,7 @@ ${SITE_FONT_EXTRA[fn.id] || ''}
   const js = `/* ${name} · Portfolio */\n(${siteScript.toString()})();\n`;
 
   /* ---- Page ---- */
-  const desc = (p.headline.trim() || p.objective.trim() || `${name} · Portfolio`).slice(0, 155);
+  const desc = (parts.desc || `${name} · Portfolio`).slice(0, 155);
   const favicon = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${th.l.a}"/><text x="32" y="45" font-family="Arial,sans-serif" font-size="36" font-weight="800" fill="#fff" text-anchor="middle">${esc(ini.charAt(0))}</text></svg>`);
   const inline = opt.mode !== 'files';
   const END = '<' + '/script>';
@@ -1830,7 +2450,7 @@ function renderParts(){
 function schedulePreview(){ clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 120); }
 function updatePreview(){
   if (currentView !== 'design') return;
-  const site = buildSite(state, state.design, {preview:true, photo: state.profile.photo, resumeHref:'#', resumePending:true, forceTheme: previewMode, scrollY: previewScroll});
+  const site = buildSite(state, state.design, {preview:true, photo: state.profile.photo, forceTheme: previewMode, scrollY: previewScroll});
   $('#preview').srcdoc = site.html;
   fitStage();
 }
@@ -1896,7 +2516,7 @@ $('#applyCode').onclick = () => {
   designChanged(); toast('Design applied');
 };
 $('#openFull').onclick = () => {
-  const site = buildSite(state, state.design, {photo: state.profile.photo, resumeHref:'#', resumePending:true});
+  const site = buildSite(state, state.design, {photo: state.profile.photo});
   const url = URL.createObjectURL(new Blob([site.html], {type:'text/html'}));
   const w = window.open(url, '_blank');
   if (!w) toast('Pop-up blocked. Allow pop-ups to open the full-screen preview.');
@@ -2027,7 +2647,7 @@ function resumeModel(D, R){
 function layoutResume(M, R, fs, sp, J){
   const s = sp;
   const [PW, PH] = R.paper === 'letter' ? [612, 792] : [595.28, 841.89];
-  const ML = 38 + 8 * sp, MR = ML, MT = Math.round(26 + 14 * sp), MB = Math.round(24 + 10 * sp);
+  const ML = 38 + 8 * sp, MR = ML, MT = Math.round(26 + 14 * sp), MB = Math.round(M.footer ? 40 + 6 * sp : 24 + 10 * sp);
   const X0 = ML, X1 = PW - MR, W = X1 - X0;
   const SZ = {name: 21 * fs, head: 10.2 * fs, contact: 9.2 * fs, sec: 10.8 * fs, body: 10 * fs, sub: 9.4 * fs};
   const LH = 1.14 + 0.18 * sp, DARK = '#111111', MID = '#404040', RULE = '#8a8a8a';
@@ -2062,6 +2682,11 @@ function layoutResume(M, R, fs, sp, J){
     if (!k) cur().push({t:'dot', x: X0 + 4.5, y: base(top, sz) - sz * 0.33, r: 1.2 * fs, c: DARK});
     T(t, X0 + 13, base(top, sz), sz, false, false, DARK);
   }}));
+  const numIndent = Math.max(22 * fs, tw('BC88.', true, false, SZ.body) + 6);
+  const numLines = (n, txt, sz) => wrap(txt, false, false, sz, W - numIndent).map((t, k) => ({h: sz * LH, draw: top => {
+    if (!k) T(n + '.', X0, base(top, sz), sz, true, false, DARK);
+    T(t, X0 + numIndent, base(top, sz), sz, false, false, DARK);
+  }}));
 
   /* Header */
   const nameW = tw(M.name, true, false, SZ.name);
@@ -2070,10 +2695,11 @@ function layoutResume(M, R, fs, sp, J){
     const hl = wrap(M.headline, false, false, SZ.head, W);
     place(hl.map(t => ({h: SZ.head * LH, draw: top => T(t, X0 + (W - tw(t, false, false, SZ.head)) / 2, base(top, SZ.head), SZ.head, false, false, MID)})));
   }
-  if (M.contacts.length){
+  [M.contacts, M.ids || []].forEach(group => {
+    if (!group.length) return;
     const sepW = tw('  |  ', false, false, SZ.contact), rows = [[]];
     let rowW = 0;
-    M.contacts.forEach(ct => {
+    group.forEach(ct => {
       const w = tw(ct.text, false, false, SZ.contact);
       if (rows[rows.length - 1].length && rowW + sepW + w > W){ rows.push([]); rowW = 0; }
       if (rows[rows.length - 1].length) rowW += sepW;
@@ -2087,7 +2713,7 @@ function layoutResume(M, R, fs, sp, J){
         T(it.text, x, base(top, SZ.contact), SZ.contact, false, false, DARK, it.url); x += it.w;
       });
     }})));
-  }
+  });
   y += 3 * s;
 
   /* Sections */
@@ -2096,11 +2722,17 @@ function layoutResume(M, R, fs, sp, J){
       T(S.title, X0, base(top, SZ.sec), SZ.sec, true, false, DARK);
       cur().push({t:'line', x1: X0, y1: top + SZ.sec * 1.2 + 1.2 * s, x2: X1, y2: top + SZ.sec * 1.2 + 1.2 * s, w: 0.7, c: RULE});
     }}];
+    let carry = title;
     S.blocks.forEach((bl, bi) => {
       let lines = [];
       if (bl.k === 'para') lines = textLines(bl.text, false, false, SZ.body, W, X0, DARK);
       else if (bl.k === 'label') lines = labelLines(bl.label, bl.text, SZ.body, bl.url);
       else if (bl.k === 'bullet') lines = bulletLines(bl.text, SZ.body);
+      else if (bl.k === 'num') lines = numLines(bl.n, bl.text, SZ.body).concat(bi < S.blocks.length - 1 ? [gap(2 * s)] : []);
+      else if (bl.k === 'subhead'){
+        carry = carry.concat(bi ? [gap(4 * s)] : [], [{h: SZ.body * 1.3, draw: top => T(bl.text, X0, base(top, SZ.body), SZ.body, true, true, DARK)}]);
+        return;
+      }
       else if (bl.k === 'entry'){
         const rw = bl.right ? tw(bl.right, false, false, SZ.sub) : 0;
         wrap(bl.left, true, false, SZ.body, W - (rw ? rw + 14 : 0)).forEach((t, k) => lines.push({h: SZ.body * LH, draw: top => {
@@ -2112,17 +2744,30 @@ function layoutResume(M, R, fs, sp, J){
         (bl.bullets || []).forEach(b => { lines = lines.concat(bulletLines(b, SZ.body)); });
         if (bi < S.blocks.length - 1) lines.push(gap(4.5 * s));
       }
-      place(bi === 0 ? title.concat(lines) : lines);
+      place(carry.concat(lines));
+      carry = [];
     });
   });
+
+  /* Footer with page numbers (multi-page CVs) */
+  if (M.footer){
+    const n = pages.length, fz = 8;
+    pages.forEach((ops, i) => {
+      const right = `Page ${i + 1} of ${n}`;
+      ops.push({t:'line', x1: X0, y1: PH - 30, x2: X1, y2: PH - 30, w: 0.5, c: '#bbbbbb'});
+      ops.push({t:'text', txt: M.name + ' | ' + (M.docTitle || 'Curriculum Vitae'), x: X0, y: PH - 19, s: fz, b: false, i: false, c: MID});
+      ops.push({t:'text', txt: right, x: X1 - tw(right, false, false, fz), y: PH - 19, s: fz, b: false, i: false, c: MID});
+    });
+  }
   return {pages, PW, PH, fs, sp};
 }
 
-function fitResume(M, R, J){
+function fitResume(M, R, J, maxPages){
+  if (!maxPages) return layoutResume(M, R, 1, 0.85, J);
   let res;
   for (const [fs, sp] of [[1,1],[1,.85],[.97,.75],[.95,.65],[.92,.55],[.9,.45],[.9,.35]]){
     res = layoutResume(M, R, fs, sp, J);
-    if (res.pages.length === 1) return res;
+    if (res.pages.length <= maxPages) return res;
   }
   return res;
 }
@@ -2152,22 +2797,23 @@ function resumePdf(fit, M, R, JsPDF){
       }
     });
   });
-  const skills = ['languages','tools','domain'].flatMap(k => state.skills[k]);
-  doc.setProperties({title: M.name + ' - Resume', subject: 'Resume', author: M.name, keywords: pdfText(skills.join(', ')), creator: 'Portfolio Generator'});
+  const title = M.docTitle || 'Resume';
+  doc.setProperties({title: M.name + ' - ' + title, subject: title, author: M.name, keywords: pdfText(TYPE.keywords(state).join(', ')), creator: 'Portfolio Generator'});
   return doc;
 }
-function resumeFileName(){
+const resumeKind = kind => { const ks = TYPE.resume.kinds; return ks.find(k => k.id === (kind || state.resume.kind)) || ks[0]; };
+function resumeFileName(kind){
   const n = pdfText(state.profile.name).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
-  return (n || 'My') + '_Resume.pdf';
+  return (n || 'My') + '_' + resumeKind(kind).file + '.pdf';
 }
 
 /* Build the PDF bytes (used by Step 4 for the ZIP too) */
-async function buildResume(){
+async function buildResume(kind){
   const JsPDF = await loadJsPDF();
-  const R = state.resume;
-  const M = resumeModel(state, R);
-  const fit = fitResume(M, R, new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4'}));
-  return {M, R, fit, doc: resumePdf(fit, M, R, JsPDF)};
+  const R = state.resume, K = resumeKind(kind);
+  const M = TYPE.resumeModel(state, R, K.id);
+  const fit = fitResume(M, R, new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4'}), K.pages);
+  return {M, R, K, fit, doc: resumePdf(fit, M, R, JsPDF)};
 }
 
 function atsChecks(M, fit){
@@ -2189,11 +2835,142 @@ function atsChecks(M, fit){
   return out;
 }
 
+/* ---------- Professor / academic CV ---------- */
+function pubCite(x){
+  const P = pdfText;
+  const ven = P(x.venue), inV = ven && /^(Conference|Book chapter)$/.test(x.type) && !/^in\b/i.test(ven) ? 'in ' + ven : ven;
+  const a = P(x.authors), t = P(x.title).replace(/[.,]$/, ''), tail = nz(inV, P(x.details), pubYear(x) > 0 ? String(pubYear(x)) : P(x.year)).join(', ');
+  let s = (a ? a + ', ' : '') + '"' + t + (tail ? '," ' + tail + '.' : '."');
+  const doi = cleanDoi(x.doi);
+  if (doi) s += ' DOI: ' + P(doi) + '.';
+  else if (safeUrl(x.link)) s += ' ' + P(shortUrl(x.link));
+  const ix = nz(x.indexing && x.indexing !== 'Not indexed' ? P(x.indexing) : '', P(x.quartile)).join(', ');
+  if (ix) s += ' [' + ix + ']';
+  return s;
+}
+function profResumeModel(D, R, kind){
+  pdfDropped = new Set();
+  const P = pdfText, inc = R.inc, p = D.profile, c = D.contact, I = D.ids, full = kind !== 'summary';
+  const span = (a, b) => nz(P(a), P(b)).join(' - ');
+  const M = {name: P(p.name) || 'Your Name', docTitle: full ? 'Curriculum Vitae' : 'CV Summary', footer: true,
+    headline: [nz(P(p.designation), P(p.department)).join(', '), P(p.institution)].filter(Boolean).join(' | '), contacts: [], ids: [], sections: []};
+  if (p.city.trim()) M.contacts.push({text: P(p.city)});
+  if (c.phone.trim()) M.contacts.push({text: P(c.phone), url: 'tel:' + c.phone.replace(/[^\d+]/g, '')});
+  if (c.email.trim()) M.contacts.push({text: P(c.email), url: 'mailto:' + c.email.trim()});
+  [c.website, c.linkedin, c.github].forEach(u => { if (safeUrl(u)) M.contacts.push({text: P(shortUrl(u)), url: u.trim()}); });
+  researchIds(D).forEach(r => M.ids.push({text: P(r.short), url: r.url}));
+  const sec = (title, blocks) => { blocks = blocks.filter(Boolean); if (blocks.length) M.sections.push({title, blocks}); };
+  const pubs = sortedPubs(D);
+  const patents = D.patents.filter(x => x.title.trim()), grants = D.grants.filter(x => x.title.trim());
+  const guide = D.guidance.filter(x => x.name.trim() || x.topic.trim());
+  const phd = guide.filter(x => x.level === 'Ph.D.');
+  const top = (arr, n) => full ? arr : arr.slice(0, n);
+
+  if (inc.bio && p.bio.trim()) sec(full ? 'PROFILE' : 'PROFILE SUMMARY', [{k:'para', text: P(p.bio)}]);
+  if (D.research.interests.length) sec('RESEARCH INTERESTS', [{k:'para', text: P(D.research.interests.join(', '))}]);
+  if (inc.metrics){
+    const counts = PUB_TYPES.map(t => [t, pubs.filter(x => x.type === t).length]).filter(x => x[1]).map(([t, n]) => `${t === 'Book chapter' ? 'Book chapters' : t === 'Book' ? 'Books' : t === 'Journal' ? 'Journals' : 'Conferences'} ${n}`).join(', ');
+    const cit = nz(fmtNum(I.citations) && 'Citations: ' + fmtNum(I.citations), +I.hindex && 'h-index: ' + I.hindex, +I.i10 && 'i10-index: ' + I.i10);
+    const out = nz(patents.length && 'Patents: ' + patents.length, grants.length && 'Funded projects: ' + grants.length, phd.length && 'Ph.D. scholars: ' + phd.length + ' (' + phd.filter(x => x.status === 'Completed').length + ' completed)');
+    sec('RESEARCH METRICS', [
+      cit.length && {k:'label', label: nz(P(I.metricsFrom) || 'Citations', I.metricsDate.trim() && '(as on ' + P(I.metricsDate) + ')').join(' '), text: cit.join(' | ')},
+      pubs.length && {k:'label', label:'Publications', text: pubs.length + (counts ? ' (' + counts + ')' : '')},
+      out.length && {k:'label', label:'Research output', text: out.join(' | ')}
+    ]);
+  }
+  sec('EDUCATION', D.education.filter(e => e.institution.trim() || e.degree.trim()).map(e => ({k:'entry',
+    left: P(nz(e.degree, e.field).join(e.degree && e.field ? ' in ' : '')), right: P(e.year), sub: nz(P(e.institution), P(e.university), P(e.score)).join(' | '),
+    labels: inc.thesis && e.thesis.trim() ? [{label:'Thesis', text: P(e.thesis)}] : []})));
+  sec('PROFESSIONAL EXPERIENCE', D.experience.filter(x => x.designation.trim() || x.institution.trim()).map((x, i) => ({k:'entry',
+    left: P(x.designation || x.institution), right: span(x.start, x.end), sub: x.designation ? P(x.institution) : '',
+    bullets: inc.expBullets && (full || i === 0) ? String(x.points || '').split('\n').map(l => P(l.replace(/^[\s•*-]+/, ''))).filter(Boolean).slice(0, full ? 99 : 3) : []})));
+  if (inc.admin) sec('ADMINISTRATIVE RESPONSIBILITIES', top(D.admin.filter(x => x.role.trim()), 3).map(x => ({k:'bullet',
+    text: nz(P(x.role), P(x.body)).join(', ') + (x.period.trim() ? ' (' + P(x.period) + ')' : '') + (x.desc.trim() ? ': ' + P(x.desc) : '')})));
+  if (inc.teaching && full) sec('TEACHING', [
+    D.teaching.courses.length && {k:'label', label:'Courses handled', text: P(D.teaching.courses.join(', '))},
+    D.teaching.labs.length && {k:'label', label:'Laboratories', text: P(D.teaching.labs.join(', '))},
+    D.teaching.moocs.length && {k:'label', label:'Online courses', text: P(D.teaching.moocs.join(', '))}
+  ]);
+  if (inc.teaching && !full && D.teaching.courses.length) sec('TEACHING', [{k:'label', label:'Courses handled', text: P(D.teaching.courses.join(', '))}]);
+  if (inc.guidance && guide.length){
+    const lv = ['Ph.D.','M.E. / M.Tech','M.Sc / MCA','UG project'].map(l => { const g = guide.filter(x => x.level === l); if (!g.length) return '';
+      const done = g.filter(x => x.status === 'Completed').length; return `${l === 'UG project' ? 'UG projects' : l}: ${done} completed, ${g.length - done} ongoing`; }).filter(Boolean);
+    sec('RESEARCH GUIDANCE', [{k:'label', label:'Summary', text: lv.join(' | ')}].concat(full ? guide.map(x => ({k:'bullet',
+      text: nz(P(x.name), P(x.level)).join(', ') + ' (' + nz(P(x.status), P(x.year)).join(', ') + ')' + (x.topic.trim() ? ': ' + P(x.topic) : '')})) : []));
+  }
+  sec('FUNDED PROJECTS & CONSULTANCY', top(grants, 3).map(x => ({k:'bullet',
+    text: '"' + P(x.title) + '" - ' + nz(P(x.agency), P(x.amount), x.role && 'Role: ' + P(x.role), P(x.period)).join(', ') + (x.status ? ' (' + P(x.status) + ')' : '')})));
+  sec('PATENTS', top(patents, 3).map(x => ({k:'bullet',
+    text: '"' + P(x.title) + '" - ' + nz(x.number.trim() && 'No. ' + P(x.number), P(x.status), P(x.date)).join(', ') + (full && x.inventors.trim() ? '. Inventors: ' + P(x.inventors) : '')})));
+
+  if (full){
+    const blocks = [];
+    const pre = {'Journal':'J', 'Conference':'C', 'Book chapter':'BC', 'Book':'B'};
+    const head = {'Journal':'Journal Papers', 'Conference':'Conference Papers', 'Book chapter':'Book Chapters', 'Book':'Books'};
+    PUB_TYPES.forEach(t => {
+      const g = pubs.filter(x => (x.type || 'Journal') === t);
+      if (!g.length) return;
+      blocks.push({k:'subhead', text: `${head[t]} (${g.length})`});
+      g.forEach((x, i) => blocks.push({k:'num', n: pre[t] + (i + 1), text: pubCite(x)}));
+    });
+    sec('PUBLICATIONS', blocks);
+  } else if (pubs.length){
+    const n = +R.summaryPubs || 8;
+    const sel = pubs.filter(x => x.featured).concat(pubs.filter(x => !x.featured)).slice(0, n);
+    const site = typeof siteUrl === 'function' && GH_USER_RE.test(state.publish.user.trim()) ? siteUrl() : '';
+    sec('SELECTED PUBLICATIONS', sel.map((x, i) => ({k:'num', n: String(i + 1), text: pubCite(x)}))
+      .concat(pubs.length > sel.length ? [{k:'para', text: `${sel.length} of ${pubs.length} publications shown.` + (site ? ' Full list: ' + site : ' Full list in the complete CV.')}] : []));
+  }
+  if (inc.talks) sec('INVITED TALKS & GUEST LECTURES', top(D.talks.filter(x => x.title.trim()), 3).map(x => ({k:'bullet',
+    text: '"' + P(x.title) + '" - ' + nz(P(x.kind), P(x.event), P(x.host), P(x.date)).join(', ')})));
+  if (full){
+    const fd = D.fdps.filter(x => x.title.trim());
+    const grp = [['Organised', fd.filter(x => /^Organised/.test(x.role))], ['Resource person', fd.filter(x => x.role === 'Resource person')], ['Attended', inc.fdpAtt ? fd.filter(x => x.role === 'Attended' || !x.role) : []]].filter(g => g[1].length);
+    if (inc.fdps) sec('FDPs, WORKSHOPS & CONFERENCES', grp.flatMap(([l, g]) => [{k:'subhead', text: `${l} (${g.length})`}].concat(g.map(x => ({k:'bullet',
+      text: P(x.title) + ' - ' + nz(P(x.sponsor), P(x.organiser), P(x.duration), P(x.date)).join(', ')})))));
+  }
+  if (inc.service) sec('ACADEMIC & PROFESSIONAL SERVICE', top(D.service.filter(x => x.role.trim() || x.body.trim()), 3).map(x => ({k:'bullet',
+    text: nz(P(x.role), P(x.body)).join(', ') + (x.period.trim() ? ' (' + P(x.period) + ')' : '')})));
+  if (inc.memberships && D.more.memberships.length) sec('PROFESSIONAL MEMBERSHIPS', [{k:'para', text: P(D.more.memberships.join(', '))}]);
+  if (inc.awards) sec('AWARDS & HONOURS', top(D.awards.filter(x => x.title.trim()), 4).map(x => ({k:'bullet',
+    text: nz(P(x.title), nz(P(x.org), x.year.trim() ? '(' + P(x.year) + ')' : '').join(' ')).join(' - ') + (x.desc.trim() ? '. ' + P(x.desc) : '')})));
+  if (inc.certs && full) sec('CERTIFICATIONS', D.certifications.filter(x => x.name.trim()).map(x => ({k:'bullet',
+    text: nz(P(x.name), nz(P(x.issuer), x.date.trim() ? '(' + P(x.date) + ')' : '').join(' ')).join(' - ')})));
+  if (inc.additional && full) sec('ADDITIONAL INFORMATION', [
+    D.more.tools.length && {k:'label', label:'Tools & software', text: P(D.more.tools.join(', '))},
+    D.more.languages.length && {k:'label', label:'Languages', text: P(D.more.languages.join(', '))}
+  ]);
+  M.dropped = [...pdfDropped];
+  return M;
+}
+function profChecks(M, fit, kind){
+  const D = state, out = [], pubs = sortedPubs(D), n = fit.pages.length;
+  if (kind === 'summary') out.push([n <= 2, n <= 2 ? `Fits in ${n} page${n > 1 ? 's' : ''}` : `Runs to ${n} pages. Lower "Publications in the summary" or turn off sections.`]);
+  else out.push([true, `${n} page${n > 1 ? 's' : ''}, with your name and page numbers on every page`]);
+  out.push([true, 'Real, selectable text with standard academic headings']);
+  const ids = researchIds(D);
+  out.push([ids.some(x => x.key === 'orcid' || x.key === 'scholar'), ids.some(x => x.key === 'orcid' || x.key === 'scholar') ? `Research IDs on the CV: ${ids.map(x => x.label).join(', ')}` : 'Add your ORCID iD or Google Scholar link']);
+  if (pubs.length){
+    if (kind !== 'summary') out.push([true, 'Publications grouped by type and numbered (J1, C1, BC1…), newest first']);
+    const noYear = pubs.filter(x => pubYear(x) < 0).length;
+    if (noYear) out.push([false, `${noYear} publication${noYear > 1 ? 's have' : ' has'} no year, so ${noYear > 1 ? 'they are' : 'it is'} listed last`]);
+    const withDoi = pubs.filter(x => x.doi.trim() || safeUrl(x.link)).length;
+    out.push([withDoi * 2 >= pubs.length, `${withDoi} of ${pubs.length} publications have a DOI or link`]);
+    const idx = pubs.filter(x => x.indexing && x.indexing !== 'Not indexed').length;
+    out.push([idx > 0, idx ? `${idx} publications marked with indexing (Scopus, SCI…)` : 'Mark indexing (Scopus / SCI / UGC-CARE) on your publications']);
+  } else out.push([false, 'No publications added yet']);
+  const I = D.ids;
+  if (+I.citations || +I.hindex) out.push([!!I.metricsDate.trim(), I.metricsDate.trim() ? 'Citation metrics have an "as on" date' : 'Add the "as on" date for your citation metrics']);
+  if (M.dropped.length) out.push([false, `Removed characters the PDF font cannot show: ${M.dropped.slice(0, 8).join(' ')}. Type these in English.`]);
+  return out;
+}
+
 let resumeSeq = 0, lastResume = null;
 async function renderResume(){
   const seq = ++resumeSeq;
   const sheets = $('#sheets');
   $('#dlPdf').disabled = true; $('#openPdf').disabled = true;
+  $('#atsTitle').textContent = TYPE.resume.checksTitle;
   try {
     const r = await buildResume();
     if (seq !== resumeSeq) return;
@@ -2203,41 +2980,38 @@ async function renderResume(){
       if (r.fit.pages.length > 1) sheets.append(h('span', {class:'page-tag'}, 'Page ' + (i + 1)));
       const div = h('div', {class:'sheet'}); div.innerHTML = resumeSVG(ops, r.fit.PW, r.fit.PH); sheets.append(div);
     });
-    $('#fitInfo').textContent = `${resumeFileName()} · ${r.fit.pages.length === 1 ? 'one page' : r.fit.pages.length + ' pages'} · body text ${(10 * r.fit.fs).toFixed(1)} pt`;
+    $('#dlPdf').textContent = '⬇ Download ' + (TYPE.resume.kinds.length > 1 ? r.K.label : 'resume') + ' (PDF)';
+    $('#fitInfo').textContent = `${resumeFileName(r.K.id)} · ${r.fit.pages.length === 1 ? 'one page' : r.fit.pages.length + ' pages'} · body text ${(10 * r.fit.fs).toFixed(1)} pt`;
     const ul = $('#atsList'); ul.innerHTML = '';
-    atsChecks(r.M, r.fit).forEach(([ok, txt]) => ul.append(h('li', {class: ok ? '' : 'warn'}, h('span', {class:'d'}, ok ? '✓' : '!'), h('span', {}, txt))));
+    TYPE.resume.checks(r.M, r.fit, r.K.id).forEach(([ok, txt]) => ul.append(h('li', {class: ok ? '' : 'warn'}, h('span', {class:'d'}, ok ? '✓' : '!'), h('span', {}, txt))));
     $('#dlPdf').disabled = false; $('#openPdf').disabled = false;
   } catch(err){
     if (seq !== resumeSeq) return;
+    console.error(err);
     sheets.innerHTML = '';
-    sheets.append(h('p', {class:'res-msg'}, 'Could not load the PDF engine. Check your internet connection, then ',
+    sheets.append(h('p', {class:'res-msg'}, 'Could not build the PDF. Check your internet connection, then ',
       h('button', {type:'button', class:'btn', onclick: renderResume}, 'Try again')));
     $('#fitInfo').textContent = 'The resume needs a one-time download of the free jsPDF library.';
   }
 }
 
 function renderResumeOptions(){
-  const R = state.resume, box = $('#resOpts');
+  const R = state.resume, box = $('#resOpts'), C = TYPE.resume;
   box.innerHTML = '';
-  const sel = (label, key, opts) => {
+  C.options.forEach(([key, label, opts]) => {
     const id = 'ro-' + key, el = h('select', {id});
     opts.forEach(([v, t]) => { const o = h('option', {value:v}, t); if (R[key] === v) o.selected = true; el.append(o); });
     el.addEventListener('change', () => { R[key] = el.value; resumeChanged(); });
-    return h('div', {class:'opt'}, h('label', {class:'lbl', for:id}, label), el);
-  };
-  box.append(
-    sel('Paper size', 'paper', [['a4','A4 (India, most countries)'],['letter','US Letter']]),
-    sel('Section order', 'order', [['projects','Projects before internships'],['experience','Internships before projects']]),
-    sel('Projects to include', 'maxProjects', [['2','Best 2'],['3','Best 3'],['4','Best 4'],['5','Best 5'],['6','Best 6'],['all','All projects']])
-  );
+    box.append(h('div', {class:'opt'}, h('label', {class:'lbl', for:id}, label), el));
+  });
   const tg = h('div', {class:'toggles'});
-  RESUME_TOGGLES.forEach(([k, label]) => {
+  C.toggles.forEach(([k, label]) => {
     const cb = h('input', {type:'checkbox'}); cb.checked = !!R.inc[k];
     cb.addEventListener('change', () => { R.inc[k] = cb.checked; resumeChanged(); });
     tg.append(h('label', {class:'check'}, cb, h('span', {}, label)));
   });
-  box.append(h('div', {class:'opt'}, h('label', {class:'lbl'}, 'Include'), tg),
-    h('p', {class:'msg'}, '"Best" projects means ⭐ Featured ones first, then in your order from Step 1.'));
+  box.append(h('div', {class:'opt'}, h('label', {class:'lbl'}, 'Include'), tg));
+  if (C.note) box.append(h('p', {class:'msg'}, C.note));
 }
 let resumeTimer;
 function resumeChanged(){
@@ -2246,8 +3020,9 @@ function resumeChanged(){
 }
 $('#dlPdf').onclick = () => {
   if (!lastResume) return;
-  lastResume.doc.save(resumeFileName());
-  toast('Resume downloaded: ' + resumeFileName());
+  const f = resumeFileName(lastResume.K.id);
+  lastResume.doc.save(f);
+  toast('Downloaded: ' + f);
 };
 $('#openPdf').onclick = () => {
   if (!lastResume) return;
@@ -2287,17 +3062,18 @@ function siteUrl(){
   return `https://${u}.github.io/` + (state.publish.repoMode === 'user' ? '' : repoName() + '/');
 }
 function zipPaths(){
-  const flat = state.publish.flat, pdf = resumeFileName();
+  const flat = state.publish.flat;
   return {
     photo: state.profile.photo ? (flat ? 'profile.jpg' : 'assets/img/profile.jpg') : '',
-    pdf: flat ? pdf : 'assets/resume/' + pdf
+    pdfs: TYPE.resume.kinds.map(k => ({kind: k.id, label: k.label, desc: k.desc, path: (flat ? '' : 'assets/resume/') + resumeFileName(k.id)}))
   };
 }
 function zipFileList(){
   const paths = zipPaths(), list = ['index.html'];
   if (!state.publish.flat) list.push('css/style.css', 'js/main.js');
   if (paths.photo) list.push(paths.photo);
-  list.push(paths.pdf, '404.html', 'README.md');
+  paths.pdfs.forEach(p => list.push(p.path));
+  list.push('404.html', 'README.md');
   return list;
 }
 function treeText(){
@@ -2323,7 +3099,7 @@ Made with Portfolio Generator. Design code: \`${designCode(state.design)}\`
 | File | What it is |
 |---|---|
 | \`index.html\` | The whole one-page website |
-${flat ? '' : '| `css/style.css` | Colours, fonts, layout and animations |\n| `js/main.js` | Menu, dark mode, scroll effects, contact form |\n'}${state.profile.photo ? `| \`${zipPaths().photo}\` | Profile photo |\n` : ''}| \`${zipPaths().pdf}\` | One-page ATS resume (the Download Resume button) |
+${flat ? '' : '| `css/style.css` | Colours, fonts, layout and animations |\n| `js/main.js` | Menu, dark mode, scroll effects, contact form |\n'}${state.profile.photo ? `| \`${zipPaths().photo}\` | Profile photo |\n` : ''}${zipPaths().pdfs.map(p => `| \`${p.path}\` | ${p.desc} |\n`).join('')}
 | \`404.html\` | Friendly page for broken links |
 
 ## Publish it free on GitHub Pages
@@ -2369,14 +3145,16 @@ a{display:inline-block;margin-top:12px;padding:12px 22px;border-radius:12px;back
 async function buildZip(){
   const name = state.profile.name.trim() || 'Your Name';
   const url = siteUrl(), repo = repoName(), paths = zipPaths(), flat = state.publish.flat;
-  const [JSZip, res] = await Promise.all([loadJSZip(), buildResume()]);
-  const site = buildSite(state, state.design, {mode: flat ? 'inline' : 'files', photo: paths.photo, resumeHref: paths.pdf, siteUrl: url, hidePhone: !state.publish.showPhone});
+  const JSZip = await loadJSZip();
+  const pdfs = [];
+  for (const p of paths.pdfs) pdfs.push({p, res: await buildResume(p.kind)});
+  const site = buildSite(state, state.design, {mode: flat ? 'inline' : 'files', photo: paths.photo, resumes: paths.pdfs.map(p => ({href: p.path, label: p.label})), siteUrl: url, hidePhone: !state.publish.showPhone});
   const zip = new JSZip();
   const root = zip.folder(repo);
   root.file('index.html', site.html);
   if (!flat){ root.file('css/style.css', site.css); root.file('js/main.js', site.js); }
   if (paths.photo) root.file(paths.photo, state.profile.photo.split(',')[1], {base64: true});
-  root.file(paths.pdf, res.doc.output('arraybuffer'));
+  pdfs.forEach(({p, res}) => root.file(p.path, res.doc.output('arraybuffer')));
   root.file('404.html', notFoundPage(name, url));
   root.file('README.md', readmeText(name, url));
   return {blob: await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level: 6}}), file: repo + '.zip'};
@@ -2423,7 +3201,7 @@ function renderGuide(){
   <details><summary>Something isn't working?</summary>
     <ul><li><b>404 / page not found:</b> check that index.html is at the top level, Pages is switched on, and wait 2–3 more minutes.</li>
     <li><b>Old version still showing:</b> wait a minute and refresh (on a laptop press Ctrl + Shift + R).</li>
-    <li><b>Photo or resume missing:</b> the ${flat ? 'profile.jpg / PDF files' : '<b>assets</b> folder'} didn't upload. Upload it again.</li>
+    <li><b>Photo or ${TYPE.id === 'professor' ? 'CV' : 'resume'} missing:</b> the ${flat ? 'profile.jpg / PDF files' : '<b>assets</b> folder'} didn't upload. Upload it again.</li>
     <li><b>Address doesn't work:</b> web addresses are lowercase: ${esc(url)}</li></ul></details>`;
   $('#guide').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
     const t = b.dataset.copy;
@@ -2482,9 +3260,110 @@ $('#dlZip').onclick = async () => {
   }
 };
 
+/* ======================================================================
+   15. USER TYPES: everything type-specific is wired here
+   ====================================================================== */
+const TYPES = {
+  student: {
+    id:'student', label:'Student', edition:'Student edition', storeKey:'pg_student_v1',
+    schema: SCHEMA, checks: CHECKS, sample: SAMPLE, sampleMsg:'Sample student loaded. Edit anything.',
+    keywords: d => ['languages','tools','domain'].flatMap(k => d.skills[k]),
+    resumeModel: (D, R) => resumeModel(D, R),
+    resume: {
+      checksTitle:'ATS check', checks: atsChecks,
+      kinds: [{id:'onepage', label:'Resume', file:'Resume', pages:1, desc:'One-page ATS resume (the Download Resume button)'}],
+      defaults: RESUME_DEFAULT,
+      options: [
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]],
+        ['order','Section order',[['projects','Projects before internships'],['experience','Internships before projects']]],
+        ['maxProjects','Projects to include',[['2','Best 2'],['3','Best 3'],['4','Best 4'],['5','Best 5'],['6','Best 6'],['all','All projects']]]
+      ],
+      toggles: RESUME_TOGGLES,
+      note:'"Best" projects means ⭐ Featured ones first, then in your order from Step 1.'
+    }
+  },
+  professor: {
+    id:'professor', label:'Professor / Academic', edition:'Professor / Academic edition', storeKey:'pg_professor_v1',
+    schema: PROF_SCHEMA, checks: PROF_CHECKS, sample: PROF_SAMPLE, sampleMsg:'Sample professor loaded. Edit anything.',
+    keywords: d => d.research.interests.concat(d.more.tools),
+    resumeModel: profResumeModel,
+    resume: {
+      checksTitle:'CV check', checks: profChecks,
+      kinds: [
+        {id:'full', label:'Full academic CV', file:'CV', pages:0, desc:'Full academic CV with all publications'},
+        {id:'summary', label:'2-page summary CV', file:'CV_Summary', pages:2, desc:'Two-page summary CV'}
+      ],
+      defaults: {kind:'full', paper:'a4', summaryPubs:'8', inc:{bio:true, metrics:true, thesis:true, expBullets:true, admin:true, teaching:true, guidance:true,
+        talks:true, fdps:true, fdpAtt:true, service:true, memberships:true, awards:true, certs:true, additional:true}},
+      options: [
+        ['kind','CV type',[['full','Full academic CV (all pages)'],['summary','2-page summary CV']]],
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]],
+        ['summaryPubs','Publications in the 2-page summary',[['5','5 (⭐ Selected first)'],['8','8 (⭐ Selected first)'],['10','10 (⭐ Selected first)'],['15','15 (⭐ Selected first)']]]
+      ],
+      toggles: [['bio','Profile'],['metrics','Research metrics'],['thesis','Ph.D. thesis title'],['expBullets','Experience details'],['admin','Admin roles'],
+        ['teaching','Teaching'],['guidance','Research guidance'],['talks','Invited talks'],['fdps','FDPs & workshops'],['fdpAtt','Programmes attended'],
+        ['service','Academic service'],['memberships','Memberships'],['awards','Awards'],['certs','Certifications'],['additional','Tools & languages']],
+      note:'Your website offers both PDFs; the ZIP in Step 4 includes both.'
+    }
+  }
+};
+let TYPE = TYPES.student;
+
+/* Paste box for publication lists */
+function pasteBox(s, body){
+  const ta = h('textarea', {spellcheck:'false', placeholder:'Paste here. One publication per line, or numbered like [1], [2]…\n\n[1] M. Ravi and S. Kumar, "Title of the paper," IEEE Trans. ..., vol. 3, no. 2, pp. 1–10, 2024, doi: 10.1109/xxxx.\n[2] ...'});
+  const typeSel = h('select', {});
+  [['auto','Detect automatically']].concat(PUB_TYPES.map(t => [t, 'All are: ' + t])).forEach(([v, t]) => typeSel.append(h('option', {value:v}, t)));
+  const out = h('div', {});
+  const find = () => {
+    const found = parseRefs(ta.value, typeSel.value);
+    out.innerHTML = '';
+    if (!found.length){ toast('No publications found. Put each one on its own line.'); return; }
+    const have = new Set(state[s.id].map(x => normTitle(x.title)));
+    const rows = found.map(f => { const dup = have.has(normTitle(f.title)); const cb = h('input', {type:'checkbox'}); cb.checked = !dup; return {f, cb, dup}; });
+    const dups = rows.filter(r => r.dup).length;
+    out.append(
+      h('p', {class:'msg'}, `Found ${found.length}. Untick any you don't want.` + (dups ? ` ${dups} already in your list ${dups > 1 ? 'are' : 'is'} unticked.` : '')),
+      h('ul', {class:'paste-list'}, ...rows.map(({f, cb, dup}) => h('li', {class: dup ? 'dup' : ''}, h('label', {class:'check'}, cb,
+        h('span', {}, h('b', {}, f.title), h('small', {}, nz(f.type, f.year, f.venue).join(' · ') + (dup ? ' · already added' : ''))))))),
+      h('button', {type:'button', class:'btn primary', onclick: () => {
+        const add = rows.filter(r => r.cb.checked).map(r => coerce(s.fields, r.f));
+        if (!add.length){ toast('Nothing ticked'); return; }
+        state[s.id].push(...add);
+        renderList(s, body); changed();
+        toast(`Added ${add.length} publication${add.length > 1 ? 's' : ''}. Open each one to check it and add indexing.`);
+      }}, 'Add ticked publications'));
+  };
+  return h('details', {class:'paste', open: !state[s.id].length},
+    h('summary', {}, '📋 Paste your publication list (fastest way to add many)'),
+    h('div', {class:'paste-body'},
+      h('p', {class:'intro'}, 'Copy your list from your old CV, a Word file or Google Scholar. IEEE and APA styles work best. Everything stays editable after adding.'),
+      ta, h('div', {class:'paste-row'}, h('label', {}, 'Type', typeSel), h('button', {type:'button', class:'btn primary', onclick: find}, 'Find publications')), out));
+}
+
+function refreshType(){
+  $('#edition').textContent = TYPE.edition;
+  $('#step3').textContent = TYPE.id === 'professor' ? '3 · Academic CV' : '3 · ATS resume';
+  document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('on', b.dataset.type === TYPE.id));
+  render();
+  if (currentView !== 'details') showView(currentView);
+}
+function setType(t){
+  if (!TYPES[t] || t === TYPE.id) return;
+  if (state) saveNow();
+  TYPE = TYPES[t];
+  try { localStorage.setItem(TYPE_KEY, t); } catch(e){}
+  state = load();
+  refreshType();
+  toast(TYPE.label + ' mode. ' + (state.profile.name.trim() ? 'Your saved details are loaded.' : 'Tap "Fill sample data" to see an example.'));
+}
+document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => setType(b.dataset.type)));
+
 /* ---------- Start ---------- */
-render();
-try { if (localStorage.getItem(STORE_KEY)) setStatus('Loaded your saved details'); } catch(e){}
+try { const t = localStorage.getItem(TYPE_KEY); if (TYPES[t]) TYPE = TYPES[t]; } catch(e){}
+state = load();
+refreshType();
+try { if (localStorage.getItem(TYPE.storeKey)) setStatus('Loaded your saved details'); } catch(e){}
 </script>
 </body>
 </html>
