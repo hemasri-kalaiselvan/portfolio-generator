@@ -17,13 +17,6 @@
   --ok:#15803d; --warn:#b45309; --err:#b91c1c; --chip:#eceff6;
   --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.05);
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0e1120; --card:#161a2d; --text:#e6e8f2; --muted:#9aa2b7; --line:#283049;
-    --brand:#8b93ff; --brand-ink:#0e1120; --brand-soft:#1e2342; --input:#11152a;
-    --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --chip:#232a45; --shadow:none;
-  }
-}
 :root[data-theme="dark"]{
   --bg:#0e1120; --card:#161a2d; --text:#e6e8f2; --muted:#9aa2b7; --line:#283049;
   --brand:#8b93ff; --brand-ink:#0e1120; --brand-soft:#1e2342; --input:#11152a;
@@ -61,6 +54,7 @@ header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 8
 .btn.ghost{background:transparent}
 .btn.danger:hover{border-color:var(--err);color:var(--err)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+.delall{display:block;margin:8px 0 0 auto;font-size:13px;padding:6px 11px;color:var(--muted)}
 .btn.add{width:100%;border-style:dashed;color:var(--brand);margin-top:10px;background:transparent}
 .lead{color:var(--muted);margin:6px 0 14px;font-size:14px}
 
@@ -908,6 +902,10 @@ function renderList(s, body){
     const last = items[items.length - 1];
     if (last){ last.scrollIntoView({block:'nearest', behavior:'smooth'}); last.querySelector('input:not([type=checkbox]),select,textarea')?.focus({preventScroll:true}); }
   }}, '+ Add ' + s.itemLabel));
+  if (arr.length >= 3) body.append(h('button', {type:'button', class:'btn ghost danger delall', onclick: () => {
+    if (!confirm(`Delete all ${arr.length} ${s.itemLabel}s? This cannot be undone (export a backup first if unsure).`)) return;
+    arr.splice(0, arr.length); renderList(s, body); changed(); toast('All ' + s.itemLabel + 's deleted');
+  }}, `🗑 Delete all ${arr.length} ${s.itemLabel}s`));
   if (s.extra){
     const g = h('div', {class:'grid extra'});
     s.extra.forEach(f => g.append(fieldEl(f, state[s.id + 'Extra'], changed)));
@@ -1031,7 +1029,7 @@ $('#sampleBtn').onclick = () => {
 function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
 try { applyTheme(localStorage.getItem(THEME_KEY)); } catch(e){}
 $('#themeBtn').onclick = () => {
-  const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
   const next = cur === 'dark' ? 'light' : 'dark';
   applyTheme(next);
   try { localStorage.setItem(THEME_KEY, next); } catch(e){}
@@ -1136,7 +1134,10 @@ const PROF_SCHEMA = [
     ]},
   { id:'publications', title:'Publications', chip:'Publications', icon:'📚', need:'Required',
     list:true, itemLabel:'publication', titleKey:'title', subKey:'year', paste:true,
-    intro:'Tick "Selected" on your best 5–10 papers: they appear first and go into the 2-page summary CV.',
+    intro:'Tick "Selected" on your best 5–10 papers: they appear first and go into the 2-page summary CV. Your own name is shown in bold in author lists.',
+    extra:[
+      {k:'myNames', t:'tags', label:'Your name as it appears in author lists (for bold)', ph:'M. Ravichandran, Ravichandran M, R. Meena'}
+    ],
     fields:[
       {k:'type', t:'select', label:'Type', opts:PUB_TYPES},
       {k:'year', t:'text', label:'Year', ph:'2024'},
@@ -1304,6 +1305,31 @@ function researchIds(D){
   if (safeUrl(I.researchgate)) out.push({key:'rg', label:'ResearchGate', short:'ResearchGate', url:I.researchgate.trim(), icon:'globe'});
   return out;
 }
+/* Your own name in author lists: typed variants, or guessed from your profile name */
+function myAuthorNames(){
+  const D = state && state.userType === 'professor' ? state : null;
+  if (!D) return [];
+  const typed = (D.publicationsExtra && D.publicationsExtra.myNames) || [];
+  const words = D.profile.name.replace(/^\s*((dr|prof|mr|mrs|ms|er)\.?\s+)+/i, '').replace(/[.,]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+  const auto = [];
+  if (words.length >= 2){
+    const first = words[0], last = words[words.length - 1];
+    const fi = first[0].toUpperCase(), li = last[0].toUpperCase();
+    if (first.length > 1 && last.length > 1){
+      auto.push(first + ' ' + last, fi + '. ' + last, fi + ' ' + last, last + ', ' + fi + '.', last + ' ' + fi, li + '. ' + first, first + ' ' + li, first + ', ' + li + '.');
+    } else {
+      const full = first.length > 1 ? first : last, ini = (first.length > 1 ? last : first).toUpperCase();
+      auto.push(ini + '. ' + full, ini + ' ' + full, full + ' ' + ini, full + ', ' + ini + '.');
+    }
+  }
+  return [...new Set(typed.concat(auto).map(x => x.trim()).filter(x => x.length > 2))].sort((a, b) => b.length - a.length);
+}
+function markMe(text, open, close){
+  const names = myAuthorNames();
+  if (!names.length || !text) return text;
+  const pat = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\./g, '\\.?').replace(/\s+/g, '\\s*')).join('|');
+  return text.replace(new RegExp('(?<![A-Za-z])(' + pat + ')(?![A-Za-z])', 'gi'), open + '$1' + close);
+}
 const cleanDoi = v => String(v || '').trim().replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i, '').replace(/[.,;]+$/, '');
 const pubYear = x => { const m = String(x.year || '').match(/(19|20)\d{2}/); return m ? +m[0] : -1; };
 function sortedPubs(D){
@@ -1400,6 +1426,87 @@ function parseRef(raw, forcedType){
   else r.type = 'Journal';
   return r;
 }
+/* ---------- BibTeX (.bib) import ---------- */
+const BIB_ACCENT = {'"':'̈', "'":'́', '`':'̀', '^':'̂', '~':'̃', '=':'̄', '.':'̇', u:'̆', v:'̌', H:'̋', c:'̧', d:'̣', b:'̱'};
+const BIB_MATH = {mu:'μ', alpha:'α', beta:'β', gamma:'γ', delta:'δ', epsilon:'ε', varepsilon:'ε', eta:'η', theta:'θ', kappa:'κ', lambda:'λ', pi:'π', rho:'ρ', sigma:'σ', tau:'τ', phi:'φ', varphi:'φ', chi:'χ', psi:'ψ', omega:'ω',
+  Gamma:'Γ', Delta:'Δ', Theta:'Θ', Lambda:'Λ', Pi:'Π', Sigma:'Σ', Phi:'Φ', Psi:'Ψ', Omega:'Ω', pm:'±', times:'×', cdot:'·', le:'≤', leq:'≤', ge:'≥', geq:'≥', neq:'≠', approx:'≈', sim:'~', infty:'∞',
+  circ:'°', degree:'°', rightarrow:'→', to:'→', leftarrow:'←', partial:'∂', nabla:'∇', sqrt:'√', ell:'ℓ', AA:'Å', o:'ø', O:'Ø', ae:'æ', ss:'ß', textmu:'µ', textdegree:'°', textendash:'–', textemdash:'—'};
+function bibClean(v){
+  return String(v || '')
+    .replace(/\\([`'^"~=.uvHcdb])\s*\{?\\?([A-Za-z])\}?/g, (m, a, ch) => ch + (BIB_ACCENT[a] || ''))
+    .replace(/\\([A-Za-z]+)\s*(\{\})?/g, (m, cmd) => BIB_MATH[cmd] !== undefined ? BIB_MATH[cmd] : m)
+    .replace(/\\(&|%|\$|#|_)/g, '$1')
+    .replace(/\\[a-zA-Z]+\s*/g, '')
+    .replace(/\^\{?2\}?/g, '²').replace(/\^\{?3\}?/g, '³').replace(/\$/g, '')
+    .replace(/[{}]/g, '').replace(/~/g, ' ').replace(/--/g, '–').replace(/\s+/g, ' ').trim().normalize('NFC');
+}
+function bibAuthors(a){
+  const list = bibClean(a).split(/\s+and\s+/i).map(n => {
+    n = n.trim();
+    if (!n) return '';
+    if (/^others$/i.test(n)) return 'et al.';
+    let first = '', last = '';
+    if (n.includes(',')){ const p = n.split(','); last = p[0].trim(); first = p.slice(1).join(' ').trim(); }
+    else { const p = n.split(/\s+/); last = p.pop(); first = p.join(' '); }
+    const ini = first.split(/[\s.]+/).filter(Boolean).map(w => w.split('-').map(x => x[0].toUpperCase() + '.').join('-')).join(' ');
+    return (ini ? ini + ' ' : '') + last;
+  }).filter(Boolean);
+  if (list.length <= 1) return list.join('');
+  if (list[list.length - 1] === 'et al.') return list.slice(0, -1).join(', ') + ' et al.';
+  return list.slice(0, -1).join(', ') + (list.length > 2 ? ',' : '') + ' and ' + list[list.length - 1];
+}
+function parseBibtex(text, forced){
+  const out = [], s = String(text || '');
+  let i = 0;
+  while ((i = s.indexOf('@', i)) >= 0){
+    const m = /^@(\w+)\s*\{/.exec(s.slice(i));
+    if (!m){ i++; continue; }
+    const type = m[1].toLowerCase();
+    let j = i + m[0].length, depth = 1;
+    const start = j;
+    while (j < s.length && depth){ if (s[j] === '{') depth++; else if (s[j] === '}') depth--; j++; }
+    const body = s.slice(start, j - 1);
+    i = j;
+    if (['comment','string','preamble'].includes(type)) continue;
+    const f = {};
+    let pos = body.indexOf(',') + 1;
+    if (pos <= 0) continue;
+    while (pos < body.length){
+      const fm = /^\s*([A-Za-z][\w-]*)\s*=\s*/.exec(body.slice(pos));
+      if (!fm) break;
+      pos += fm[0].length;
+      let val = '';
+      if (body[pos] === '{'){
+        let d = 0, q = pos;
+        do { if (body[q] === '{') d++; else if (body[q] === '}') d--; q++; } while (q < body.length && d);
+        val = body.slice(pos + 1, q - 1); pos = q;
+      } else if (body[pos] === '"'){
+        let q = pos + 1;
+        while (q < body.length && !(body[q] === '"' && body[q - 1] !== '\\')) q++;
+        val = body.slice(pos + 1, q); pos = q + 1;
+      } else {
+        const vm = /^[^,]*/.exec(body.slice(pos)); val = vm[0].trim(); pos += vm[0].length;
+      }
+      f[fm[1].toLowerCase()] = val;
+      pos += /^\s*,?/.exec(body.slice(pos))[0].length;
+    }
+    const tmap = {article:'Journal', inproceedings:'Conference', conference:'Conference', proceedings:'Conference', incollection:'Book chapter', inbook:'Book chapter', book:'Book'};
+    const pages = bibClean(f.pages);
+    out.push({
+      type: forced && forced !== 'auto' ? forced : (tmap[type] || 'Journal'),
+      authors: bibAuthors(f.author || f.editor || ''),
+      title: bibClean(f.title).replace(/[.]$/, ''),
+      venue: bibClean(f.journal || f.booktitle || f.publisher || f.school || f.howpublished || ''),
+      details: nz(f.volume && 'vol. ' + bibClean(f.volume), f.number && 'no. ' + bibClean(f.number), f.chapter && 'ch. ' + bibClean(f.chapter), pages && (/[-\u2013]/.test(pages) ? 'pp. ' : 'p. ') + pages).join(', '),
+      year: (bibClean(f.year).match(/\d{4}/) || [''])[0],
+      doi: cleanDoi(bibClean(f.doi)),
+      link: safeUrl(bibClean(f.url)) || ''
+    });
+  }
+  return out.filter(r => r.title);
+}
+const looksBib = t => /@\w+\s*\{[^,]*,/.test(t);
+
 function parseRefs(text, forcedType){
   return splitRefs(text).map(s => parseRef(s, forcedType)).filter(r => r.title && r.title.length > 3);
 }
@@ -1611,6 +1718,7 @@ section{scroll-margin-top:76px}
 .pub-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .pub-top .when{margin-right:auto}
 .pub-t{font-weight:600;font-size:1.04rem;line-height:1.4}
+.me{color:var(--text);font-weight:700}
 .idx{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid color-mix(in srgb,var(--accent2) 50%,transparent);color:var(--accent2)}
 .metrics{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:baseline;margin-bottom:24px;font-size:.92rem;color:var(--muted)}
 .metrics b{font-family:var(--hf);font-size:1.5rem;color:var(--accent);margin-right:6px}
@@ -1869,7 +1977,7 @@ const SITE_FONT_EXTRA = {
 function siteScript(){
   var root = document.documentElement, body = document.body;
   try { var saved = localStorage.getItem('pf-theme'); if (saved && !root.getAttribute('data-theme')) root.setAttribute('data-theme', saved); } catch (e) {}
-  function isDark(){ var a = root.getAttribute('data-theme'); return a ? a === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  function isDark(){ return root.getAttribute('data-theme') === 'dark'; }
   var tt = document.getElementById('themeToggle');
   if (tt) tt.addEventListener('click', function(){
     var next = isDark() ? 'light' : 'dark';
@@ -2176,7 +2284,7 @@ function professorSite(D, K, opt){
       const links = (doi ? `<a href="https://doi.org/${esc(doi)}"${ext}>${ic('ext')}DOI</a>` : '') + (safeUrl(x.link) ? `<a href="${esc(x.link)}"${ext}>${ic('file')}Link</a>` : '');
       return `<li class="card pub rv" data-cat="${PUB_KEY[x.type] || 'j'}${x.featured ? ' sel' : ''}"><div class="pub-top"><span class="tag">${esc(x.type || 'Journal')}</span>` +
         `${pubYear(x) > 0 ? `<span class="when">${pubYear(x)}</span>` : ''}${ix.map(t => `<span class="idx">${esc(t)}</span>`).join('')}${x.featured ? '<span class="star">★ Selected</span>' : ''}</div>` +
-        `<p class="pub-t">${esc(x.title)}</p>${x.authors.trim() ? `<p class="small muted">${esc(x.authors)}</p>` : ''}` +
+        `<p class="pub-t">${esc(x.title)}</p>${x.authors.trim() ? `<p class="small muted">${markMe(esc(x.authors), '<b class="me">', '</b>')}</p>` : ''}` +
         `${nz(x.venue, x.details).length ? `<p class="small"><i>${esc(x.venue)}</i>${x.details.trim() ? (x.venue.trim() ? ', ' : '') + esc(x.details) : ''}</p>` : ''}` +
         `${links ? `<div class="plinks">${links}</div>` : ''}</li>`;
     }).join('');
@@ -2322,7 +2430,6 @@ function buildSite(D, ds, opt = {}){
   /* ---- CSS ---- */
   const css = `/* ${name} · Portfolio · design ${designCode(ds)} */
 :root{--hf:${fn.h},system-ui,sans-serif;--bf:${fn.b},system-ui,sans-serif;--hw:${fn.hw};--track:${fn.track};--hcase:${fn.hcase};--radius:16px;${themeVars(th, 'l')}}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${themeVars(th, 'd')}}}
 :root[data-theme="dark"]{${themeVars(th, 'd')}}
 ${SITE_BASE_CSS}${SITE_NAV_CSS[N]}${SITE_LAYOUT_CSS[L]}${SITE_ANIM_CSS[A]}
 ${SITE_FONT_EXTRA[fn.id] || ''}
@@ -2349,7 +2456,7 @@ ${SITE_FONT_EXTRA[fn.id] || ''}
 <link rel="canonical" href="${esc(opt.siteUrl)}">` : ''}${opt.siteUrl && opt.photo && !opt.photo.startsWith('data:') ? `
 <meta property="og:image" content="${esc(opt.siteUrl + opt.photo)}">` : ''}
 <meta name="theme-color" content="${th.l.a}">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <link rel="icon" href="${favicon}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2375,7 +2482,7 @@ ${opt.preview ? `<script>(function(){var y=${opt.scrollY | 0};function go(){if(y
    12. STEP 2 SCREEN: design controls + live preview
    ====================================================================== */
 const designCode = d => PARTS.map(p => d[p.key] || '?').join('.');
-let previewMode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+let previewMode = 'light';
 let deviceW = window.innerWidth >= 1000 ? 1280 : 390;
 let previewScroll = 0, previewTimer;
 let currentView = 'details';
@@ -2557,7 +2664,37 @@ const ACTION_VERBS = new Set(('built designed developed implemented created led 
   'supported upgraded migrated refactored visualised visualized compared studied investigated proposed applied set wired soldered coded drafted ' +
   'hosted volunteered represented ranked secured completed').split(' '));
 
-let pdfDropped = new Set();
+let pdfDropped = new Set(), pdfWide = false;
+/* Characters the embedded Unicode font (DejaVu Sans) can show: Latin extended, Greek, Cyrillic, maths, arrows, symbols */
+const PDF_EXT = /[\u0100-\u024F\u0370-\u03FF\u0400-\u04FF\u1E00-\u1EFF\u2070-\u209F\u20AC\u2100-\u214F\u2150-\u218F\u2190-\u21FF\u2200-\u22FF\u2300-\u23FF\u25A0-\u25FF]/;
+const UFONT_BASE = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/';
+const UFONT_FILES = {normal:'DejaVuSans.ttf', bold:'DejaVuSans-Bold.ttf', italic:'DejaVuSans-Oblique.ttf', bolditalic:'DejaVuSans-BoldOblique.ttf'};
+let ufontPromise = null;
+function loadUnicodeFont(){
+  if (!ufontPromise){
+    ufontPromise = Promise.all(Object.entries(UFONT_FILES).map(async ([st, f]) => {
+      const r = await fetch(UFONT_BASE + f);
+      if (!r.ok) throw new Error('font ' + r.status);
+      const buf = await r.arrayBuffer(), u8 = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+      try {
+        const ff = new FontFace('PGDejaVu', buf, {weight: st.includes('bold') ? '700' : '400', style: st.includes('italic') ? 'italic' : 'normal'});
+        await ff.load(); document.fonts.add(ff);
+      } catch(e){}
+      return [st, btoa(bin)];
+    })).then(Object.fromEntries).catch(e => { ufontPromise = null; throw e; });
+  }
+  return ufontPromise;
+}
+function addUnicodeFont(doc, F){
+  for (const [st, b64] of Object.entries(F)){ doc.addFileToVFS('pgdv-' + st + '.ttf', b64); doc.addFont('pgdv-' + st + '.ttf', 'DejaVu', st); }
+}
+/* If the symbol font cannot load, remove the symbols so the PDF still works */
+function stripWide(o){
+  const f = v => typeof v === 'string' ? v.replace(new RegExp(PDF_EXT.source, 'g'), ch => { pdfDropped.add(ch); return ''; }) : Array.isArray(v) ? v.map(f) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, f(x)])) : v;
+  return f(o);
+}
 function pdfText(v){
   let t = String(v ?? '')
     .replace(/[‘’‛′]/g, "'").replace(/[“”″]/g, '"')
@@ -2566,12 +2703,12 @@ function pdfText(v){
     .replace(/[★☆✓✔]/g, '').replace(/₹/g, 'Rs. ')
     .replace(/\s+/g, ' ').trim();
   // Standard PDF fonts only cover Western characters; drop anything else (and report it)
-  return t.replace(/[^\x20-\x7E\xA0-\xFF]/g, ch => { pdfDropped.add(ch); return ''; }).replace(/\s{2,}/g, ' ').trim();
+  return t.replace(/[^\x20-\x7E\xA0-\xFF]/g, ch => { if (PDF_EXT.test(ch)){ pdfWide = true; return ch; } pdfDropped.add(ch); return ''; }).replace(/\s{2,}/g, ' ').trim();
 }
 const shortUrl = u => String(u || '').trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '');
 
 function resumeModel(D, R){
-  pdfDropped = new Set();
+  pdfDropped = new Set(); pdfWide = false;
   const p = D.profile, c = D.contact, inc = R.inc, sk = D.skills;
   const P = pdfText;
   const span = (a, b) => nz(P(a), P(b)).join(' - ');
@@ -2639,7 +2776,7 @@ function resumeModel(D, R){
     inc.languages && D.more.languages.length && {k:'label', label:'Languages', text: P(D.more.languages.join(', '))},
     inc.interests && D.more.interests.length && {k:'label', label:'Interests', text: P(D.more.interests.join(', '))}
   ]);
-  M.dropped = [...pdfDropped];
+  M.dropped = [...pdfDropped]; M.wide = pdfWide;
   return M;
 }
 
@@ -2654,7 +2791,8 @@ function layoutResume(M, R, fs, sp, J){
   const pages = [[]];
   let y = MT;
   const cur = () => pages[pages.length - 1];
-  const font = (b, i, sz) => { J.setFont('helvetica', b && i ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal'); J.setFontSize(sz); };
+  const FAM = M.font || 'helvetica';
+  const font = (b, i, sz) => { J.setFont(FAM, b && i ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal'); J.setFontSize(sz); };
   const tw = (t, b, i, sz) => { font(b, i, sz); return J.getTextWidth(t); };
   const wrap = (t, b, i, sz, w) => { font(b, i, sz); return J.splitTextToSize(t, w); };
   const T = (txt, x, yy, sz, b, i, col, url) => { if (txt) cur().push({t:'text', txt, x, y: yy, s: sz, b: !!b, i: !!i, c: col, url}); };
@@ -2683,9 +2821,44 @@ function layoutResume(M, R, fs, sp, J){
     T(t, X0 + 13, base(top, sz), sz, false, false, DARK);
   }}));
   const numIndent = Math.max(22 * fs, tw('BC88.', true, false, SZ.body) + 6);
-  const numLines = (n, txt, sz) => wrap(txt, false, false, sz, W - numIndent).map((t, k) => ({h: sz * LH, draw: top => {
+  /* Rich text: \u0001 … \u0002 marks bold words (used to bold your own name in author lists) */
+  const richWrap = (txt, sz, w) => {
+    /* words are lists of styled segments, so "Name," keeps the comma attached */
+    const words = []; let bold = false, word = [], seg = '';
+    const endSeg = () => { if (seg) word.push({t: seg, b: bold}); seg = ''; };
+    const endWord = () => { endSeg(); if (word.length) words.push(word); word = []; };
+    for (const ch of txt){
+      if (ch === '\u0001' || ch === '\u0002'){ endSeg(); bold = ch === '\u0001'; continue; }
+      if (ch === ' '){ endWord(); continue; }
+      seg += ch;
+    }
+    endWord();
+    const sp = tw(' ', false, false, sz), lines = [[]];
+    let lw = 0;
+    words.forEach(wd => {
+      const ww = wd.reduce((a, g) => a + tw(g.t, g.b, false, sz), 0);
+      if (lines[lines.length - 1].length && lw + sp + ww > w){ lines.push([]); lw = 0; }
+      if (lines[lines.length - 1].length) lw += sp;
+      lines[lines.length - 1].push(wd); lw += ww;
+    });
+    return lines;
+  };
+  const numLines = (n, txt, sz) => richWrap(txt, sz, W - numIndent).map((runs, k) => ({h: sz * LH, draw: top => {
     if (!k) T(n + '.', X0, base(top, sz), sz, true, false, DARK);
-    T(t, X0 + numIndent, base(top, sz), sz, false, false, DARK);
+    let x = X0 + numIndent;
+    const sp = tw(' ', false, false, sz);
+    /* merge words into as few same-style runs as possible */
+    const runs2 = [];
+    runs.forEach((wd, wi) => wd.forEach((g, gi) => {
+      const last = runs2[runs2.length - 1], txt = (gi === 0 && wi > 0 ? ' ' : '') + g.t;
+      if (last && last.b === g.b) last.t += txt; else runs2.push({t: txt, b: g.b});
+    }));
+    runs2.forEach(r => {
+      const lead = r.t.startsWith(' ');
+      if (lead) x += sp;
+      const t = lead ? r.t.slice(1) : r.t;
+      T(t, x, base(top, sz), sz, r.b, false, DARK); x += tw(t, r.b, false, sz);
+    });
   }}));
 
   /* Header */
@@ -2772,22 +2945,23 @@ function fitResume(M, R, J, maxPages){
   return res;
 }
 
-function resumeSVG(ops, PW, PH){
+function resumeSVG(ops, PW, PH, fam){
   const body = ops.map(o => {
     if (o.t === 'text') return `<text x="${o.x.toFixed(2)}" y="${o.y.toFixed(2)}" font-size="${o.s.toFixed(2)}"${o.b ? ' font-weight="700"' : ''}${o.i ? ' font-style="italic"' : ''} fill="${o.c}">${esc(o.txt)}</text>`;
     if (o.t === 'line') return `<line x1="${o.x1}" y1="${o.y1.toFixed(2)}" x2="${o.x2}" y2="${o.y2.toFixed(2)}" stroke="${o.c}" stroke-width="${o.w}"/>`;
     return `<circle cx="${o.x.toFixed(2)}" cy="${o.y.toFixed(2)}" r="${o.r.toFixed(2)}" fill="${o.c}"/>`;
   }).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PW} ${PH}" font-family="Helvetica, Arial, sans-serif" xml:space="preserve" style="white-space:pre" role="img" aria-label="Resume page preview"><rect width="${PW}" height="${PH}" fill="#fff"/>${body}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PW} ${PH}" font-family="${fam ? 'PGDejaVu, ' : ''}Helvetica, Arial, sans-serif" xml:space="preserve" style="white-space:pre" role="img" aria-label="Resume page preview"><rect width="${PW}" height="${PH}" fill="#fff"/>${body}</svg>`;
 }
 
-function resumePdf(fit, M, R, JsPDF){
+function resumePdf(fit, M, R, JsPDF, UF){
   const doc = new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4', compress: true});
+  if (UF) addUnicodeFont(doc, UF);
   fit.pages.forEach((ops, i) => {
     if (i) doc.addPage();
     ops.forEach(o => {
       if (o.t === 'text'){
-        doc.setFont('helvetica', o.b && o.i ? 'bolditalic' : o.b ? 'bold' : o.i ? 'italic' : 'normal');
+        doc.setFont(M.font || 'helvetica', o.b && o.i ? 'bolditalic' : o.b ? 'bold' : o.i ? 'italic' : 'normal');
         doc.setFontSize(o.s); doc.setTextColor(o.c);
         if (o.url) doc.textWithLink(o.txt, o.x, o.y, {url: o.url}); else doc.text(o.txt, o.x, o.y);
       } else if (o.t === 'line'){
@@ -2811,9 +2985,15 @@ function resumeFileName(kind){
 async function buildResume(kind){
   const JsPDF = await loadJsPDF();
   const R = state.resume, K = resumeKind(kind);
-  const M = TYPE.resumeModel(state, R, K.id);
-  const fit = fitResume(M, R, new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4'}), K.pages);
-  return {M, R, K, fit, doc: resumePdf(fit, M, R, JsPDF)};
+  let M = TYPE.resumeModel(state, R, K.id), UF = null;
+  if (M.wide){
+    try { UF = await loadUnicodeFont(); M.font = 'DejaVu'; }
+    catch(e){ const d = M.dropped; M = stripWide(M); M.dropped = [...new Set(d.concat([...pdfDropped]))]; M.fontFailed = true; }
+  }
+  const J = new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4'});
+  if (UF) addUnicodeFont(J, UF);
+  const fit = fitResume(M, R, J, K.pages);
+  return {M, R, K, fit, doc: resumePdf(fit, M, R, JsPDF, UF)};
 }
 
 function atsChecks(M, fit){
@@ -2839,7 +3019,7 @@ function atsChecks(M, fit){
 function pubCite(x){
   const P = pdfText;
   const ven = P(x.venue), inV = ven && /^(Conference|Book chapter)$/.test(x.type) && !/^in\b/i.test(ven) ? 'in ' + ven : ven;
-  const a = P(x.authors), t = P(x.title).replace(/[.,]$/, ''), tail = nz(inV, P(x.details), pubYear(x) > 0 ? String(pubYear(x)) : P(x.year)).join(', ');
+  const a = markMe(P(x.authors), '\u0001', '\u0002'), t = P(x.title).replace(/[.,]$/, ''), tail = nz(inV, P(x.details), pubYear(x) > 0 ? String(pubYear(x)) : P(x.year)).join(', ');
   let s = (a ? a + ', ' : '') + '"' + t + (tail ? '," ' + tail + '.' : '."');
   const doi = cleanDoi(x.doi);
   if (doi) s += ' DOI: ' + P(doi) + '.';
@@ -2849,7 +3029,7 @@ function pubCite(x){
   return s;
 }
 function profResumeModel(D, R, kind){
-  pdfDropped = new Set();
+  pdfDropped = new Set(); pdfWide = false;
   const P = pdfText, inc = R.inc, p = D.profile, c = D.contact, I = D.ids, full = kind !== 'summary';
   const span = (a, b) => nz(P(a), P(b)).join(' - ');
   const M = {name: P(p.name) || 'Your Name', docTitle: full ? 'Curriculum Vitae' : 'CV Summary', footer: true,
@@ -2940,7 +3120,7 @@ function profResumeModel(D, R, kind){
     D.more.tools.length && {k:'label', label:'Tools & software', text: P(D.more.tools.join(', '))},
     D.more.languages.length && {k:'label', label:'Languages', text: P(D.more.languages.join(', '))}
   ]);
-  M.dropped = [...pdfDropped];
+  M.dropped = [...pdfDropped]; M.wide = pdfWide;
   return M;
 }
 function profChecks(M, fit, kind){
@@ -2978,7 +3158,7 @@ async function renderResume(){
     sheets.innerHTML = '';
     r.fit.pages.forEach((ops, i) => {
       if (r.fit.pages.length > 1) sheets.append(h('span', {class:'page-tag'}, 'Page ' + (i + 1)));
-      const div = h('div', {class:'sheet'}); div.innerHTML = resumeSVG(ops, r.fit.PW, r.fit.PH); sheets.append(div);
+      const div = h('div', {class:'sheet'}); div.innerHTML = resumeSVG(ops, r.fit.PW, r.fit.PH, r.M.font === 'DejaVu'); sheets.append(div);
     });
     $('#dlPdf').textContent = '⬇ Download ' + (TYPE.resume.kinds.length > 1 ? r.K.label : 'resume') + ' (PDF)';
     $('#fitInfo').textContent = `${resumeFileName(r.K.id)} · ${r.fit.pages.length === 1 ? 'one page' : r.fit.pages.length + ' pages'} · body text ${(10 * r.fit.fs).toFixed(1)} pt`;
@@ -3131,7 +3311,6 @@ function notFoundPage(name, url){
 <meta name="robots" content="noindex">
 <style>
 :root{--a:${th.l.a};--bg:${th.l.bg};--t:#141824;--m:#566072}
-@media (prefers-color-scheme:dark){:root{--a:${th.d.a};--bg:${th.d.bg};--t:#eceef7;--m:#a3aabd}}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--t);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
 h1{font-size:clamp(3rem,12vw,6rem);margin:0;color:var(--a);line-height:1}
 p{color:var(--m)}
@@ -3311,19 +3490,28 @@ let TYPE = TYPES.student;
 
 /* Paste box for publication lists */
 function pasteBox(s, body){
-  const ta = h('textarea', {spellcheck:'false', placeholder:'Paste here. One publication per line, or numbered like [1], [2]…\n\n[1] M. Ravi and S. Kumar, "Title of the paper," IEEE Trans. ..., vol. 3, no. 2, pp. 1–10, 2024, doi: 10.1109/xxxx.\n[2] ...'});
+  const ta = h('textarea', {spellcheck:'false', placeholder:'Paste here: a numbered list, one publication per line, or BibTeX (@article{…}).\n\n[1] M. Ravi and S. Kumar, "Title of the paper," IEEE Trans. ..., vol. 3, no. 2, pp. 1–10, 2024, doi: 10.1109/xxxx.\n[2] ...'});
+  const fileIn = h('input', {type:'file', accept:'.bib,.txt,.bibtex,text/plain', hidden:true});
+  fileIn.addEventListener('change', () => {
+    const fl = fileIn.files[0]; fileIn.value = '';
+    if (!fl) return;
+    const rd = new FileReader();
+    rd.onload = () => { ta.value = String(rd.result || ''); find(); };
+    rd.readAsText(fl);
+  });
   const typeSel = h('select', {});
   [['auto','Detect automatically']].concat(PUB_TYPES.map(t => [t, 'All are: ' + t])).forEach(([v, t]) => typeSel.append(h('option', {value:v}, t)));
   const out = h('div', {});
   const find = () => {
-    const found = parseRefs(ta.value, typeSel.value);
+    const bib = looksBib(ta.value);
+    const found = bib ? parseBibtex(ta.value, typeSel.value) : parseRefs(ta.value, typeSel.value);
     out.innerHTML = '';
-    if (!found.length){ toast('No publications found. Put each one on its own line.'); return; }
+    if (!found.length){ toast(bib ? 'No entries found in that BibTeX.' : 'No publications found. Put each one on its own line.'); return; }
     const have = new Set(state[s.id].map(x => normTitle(x.title)));
     const rows = found.map(f => { const dup = have.has(normTitle(f.title)); const cb = h('input', {type:'checkbox'}); cb.checked = !dup; return {f, cb, dup}; });
     const dups = rows.filter(r => r.dup).length;
     out.append(
-      h('p', {class:'msg'}, `Found ${found.length}. Untick any you don't want.` + (dups ? ` ${dups} already in your list ${dups > 1 ? 'are' : 'is'} unticked.` : '')),
+      h('p', {class:'msg'}, `Found ${found.length}${bib ? ' BibTeX entries' : ''}. Untick any you don't want.` + (dups ? ` ${dups} already in your list ${dups > 1 ? 'are' : 'is'} unticked.` : '')),
       h('ul', {class:'paste-list'}, ...rows.map(({f, cb, dup}) => h('li', {class: dup ? 'dup' : ''}, h('label', {class:'check'}, cb,
         h('span', {}, h('b', {}, f.title), h('small', {}, nz(f.type, f.year, f.venue).join(' · ') + (dup ? ' · already added' : ''))))))),
       h('button', {type:'button', class:'btn primary', onclick: () => {
@@ -3337,8 +3525,10 @@ function pasteBox(s, body){
   return h('details', {class:'paste', open: !state[s.id].length},
     h('summary', {}, '📋 Paste your publication list (fastest way to add many)'),
     h('div', {class:'paste-body'},
-      h('p', {class:'intro'}, 'Copy your list from your old CV, a Word file or Google Scholar. IEEE and APA styles work best. Everything stays editable after adding.'),
-      ta, h('div', {class:'paste-row'}, h('label', {}, 'Type', typeSel), h('button', {type:'button', class:'btn primary', onclick: find}, 'Find publications')), out));
+      h('p', {class:'intro'}, 'Copy your list from your old CV or a Word file (IEEE and APA styles work best), or use a BibTeX file. Everything stays editable after adding.'),
+      h('p', {class:'intro'}, h('b', {}, 'Most accurate: '), 'in Google Scholar, open your profile, tick your papers → Export → BibTeX, save the file, then tap “Upload .bib file”. Scopus, Mendeley and Zotero can export BibTeX too.'),
+      ta, h('div', {class:'paste-row'}, h('label', {}, 'Type', typeSel),
+        h('span', {style:'display:flex;gap:8px;flex-wrap:wrap'}, h('button', {type:'button', class:'btn', onclick: () => fileIn.click()}, '⬆ Upload .bib file'), h('button', {type:'button', class:'btn primary', onclick: find}, 'Find publications'))), fileIn, out));
 }
 
 function refreshType(){
