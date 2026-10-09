@@ -1205,8 +1205,9 @@ section{scroll-margin-top:76px}
 .rv.in{opacity:1;transform:none}
 .nav{z-index:50;display:flex;align-items:center;gap:12px}
 .nav::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;transition:.3s}
-.brand{position:relative;z-index:2;font-family:var(--hf);font-weight:800;font-size:1.15rem;letter-spacing:-.02em}
-.brand span{color:var(--accent)}
+.brand{position:relative;z-index:2;font-family:var(--hf);font-weight:800;font-size:1.15rem;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:calc(100vw - 140px)}
+.foot a{color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.foot a:hover{text-decoration-thickness:2px}
 .links{display:flex;gap:2px}
 .links a{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;font-size:.92rem;font-weight:500;color:var(--muted);transition:.2s}
 .links a:hover,.links a.active{color:var(--accent);background:var(--soft)}
@@ -1676,7 +1677,7 @@ function buildSite(D, ds, opt = {}){
   /* ---- Navigation ---- */
   const withHome = ['dock','dots','side'].includes(N);
   const navItems = (withHome ? [['home','Home','home']] : []).concat(S.filter(s => s[0] !== 'resume').map(s => [s[0], s[1], s[2]]));
-  const navHTML = `<header class="nav" id="nav"><a class="brand" href="#home">${esc(first)}<span>.</span></a>` +
+  const navHTML = `<header class="nav" id="nav"><a class="brand" href="#home">${esc(name)}</a>` +
     `<nav class="links" aria-label="Sections">${navItems.map(([id, l, i]) => `<a href="#${id}">${ic(i)}<span>${l}</span></a>`).join('')}</nav>` +
     `<div class="tools"><button class="ib tt" id="themeToggle" type="button" aria-label="Switch light or dark mode" title="Light / dark">${ic('contrast')}</button>` +
     `<button class="ib burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false">${ic('menu')}</button></div></header>`;
@@ -1741,7 +1742,7 @@ ${hero}
 <main class="content">
 ${S.map(s => s[3]).join('\n')}
 </main>
-<footer class="foot"><div class="wrap">© <span id="yr"></span> ${esc(name)} · Built with Portfolio Generator</div></footer>
+<footer class="foot"><div class="wrap">© <span id="yr"></span> ${esc(name)} · Built with <a href="https://hemasri-kalaiselvan.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator</a></div></footer>
 <a href="#home" class="totop" id="totop" aria-label="Back to top">${ic('up')}</a>
 ${inline ? `<script>${js}${END}` : `<script src="js/main.js">${END}`}
 ${opt.preview ? `<script>(function(){var y=${opt.scrollY | 0};function go(){if(y)window.scrollTo({top:y,behavior:'instant'})}go();addEventListener('load',go);var t;addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){parent.postMessage({pgScroll:window.scrollY},'*')},120)},{passive:true})})();${END}` : ''}
