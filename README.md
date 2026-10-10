@@ -1,11 +1,6 @@
 # Portfolio Generator
 
-> Create a personal portfolio website and a matching resume / CV PDF in a few minutes — free, no coding, no sign-up.
-
-**Tech:** HTML, CSS, JavaScript
-**Tools:** GitHub, jsPDF, JSZip, DejaVu Sans, Google Fonts
-**AI Tools:** Claude
-
+**Create a personal portfolio website and a matching resume / CV PDF in a few minutes. Free, no coding, no sign-up.**
 
 🔗 **Live app:** https://hemasri-kalaiselvan.github.io/portfolio-generator/
 
@@ -18,17 +13,20 @@ Fill in your details once. The generator designs a one-page portfolio website, c
 | User type | What you get |
 |---|---|
 | 🎓 **Student** | Portfolio website + **one-page ATS-friendly resume** |
+| 💼 **Fresher** (graduated, looking for a first job) | Job-ready portfolio with an **"Open to work"** badge (target role + availability) + **one-page ATS resume** with a professional summary |
+| 🏢 **Working professional** | Experience-led portfolio with **career highlights** and an optional **"Open to…"** badge + **1- or 2-page ATS resume**. Choose your field (IT, Engineering, Banking & finance, Accounts & audit, Government / PSU, Sales & marketing) and the form's labels and examples adapt. |
+| 🩺 **Doctor / Healthcare** | Practice-focused site with **registration number**, qualifications, **consultation timings** (Book · Call · Directions), clinical expertise, publications and CME + **CV PDF** |
 | 🧑‍🏫 **Professor / Academic** | Academic portfolio website + **full academic CV** (all pages) + **2-page summary CV** |
-| Fresher · Working professional · Career break | *Coming soon* |
+| 🌱 **Career break** (returning to work) | Portfolio that presents the break confidently (dated entry + what you did, reason private by default) + **ATS resume** |
 
-Student and Professor details are saved separately in your browser, so you can switch between them without losing anything.
+Each user type's details are saved separately in your browser, so you can switch between them without losing anything.
 
 ---
 
 ## How it works: 4 steps
 
 ### 1 · Your details
-- Choose **Student** or **Professor / Academic** at the top.
+- Choose **Student**, **Fresher**, **Working professional**, **Career break**, **Doctor / Healthcare** or **Professor / Academic** at the top.
 - Fill in the sections. Only a few are required; everything else is optional.
 - Upload a profile photo. It is cropped to a square and compressed automatically.
 - Tap **✨ Fill sample data** to see a complete example first.
@@ -47,7 +45,11 @@ Student and Professor details are saved separately in your browser, so you can s
 - Note the **design code** (e.g. `split.ocean.tech.pill.lift`) to get the exact same design back later.
 
 ### 3 · Resume / CV
-- **Students:** a one-page **ATS-friendly resume**. It uses real, selectable text in a single column with standard headings, and it automatically fits on one page.
+- **Students and freshers:** a one-page **ATS-friendly resume**. It uses real, selectable text in a single column with standard headings, and it automatically fits on one page.
+- **Freshers** also get a **Professional summary**, an optional **Work experience** section (freelance, part-time or contract work), and their availability and preferred locations on the resume.
+- **Working professionals:** a **1-page or 2-page ATS resume** with Professional Summary, Key Achievements, Core Skills, Experience (choose how many achievements per role) and Key Projects. The notice period is shown only if you switch it on.
+- **Doctors:** a CV (up to 2 pages, or the full CV) with your medical registration number under your name, clinical expertise, experience, training, fellowships, publications and CME.
+- **Career break:** the break appears as a short dated entry in your experience, listing what you did (courses, projects, volunteering), so there is no unexplained gap. The reason is shown only if you choose.
 - **Professors:** a **full academic CV** with page numbers and your name on every page, plus a **2-page summary CV** with your selected publications.
 - A **check panel** gives tips: missing contact details, action verbs, DOIs, indexing and more.
 - Choose A4 or US Letter, section order, and which sections to include.
@@ -119,6 +121,10 @@ Sections you leave empty are hidden automatically.
 
 ---
 
+## Notes for doctors
+
+Medical councils restrict self-promotion by doctors. The generator keeps doctor sites factual. Don't add patient testimonials, before/after photos, discounts, or claims like "best" or "guaranteed results", and check your State Medical Council / NMC rules before publishing. Every doctor site includes a footer note that it is not medical advice.
+
 ## Privacy
 
 - Everything runs **inside your browser**. Your details and photo are **never uploaded** to any server.
@@ -161,9 +167,11 @@ The whole app is a **single file**, `index.html`, with no build step and no serv
 - [x] Student portfolio + one-page ATS resume
 - [x] Professor / Academic portfolio + full and summary CV
 - [x] Publication paste box and BibTeX import
-- [ ] Fresher
-- [ ] Working professional
-- [ ] Career break
+- [x] Fresher portfolio + one-page ATS resume
+- [x] Working professional portfolio + 1- or 2-page ATS resume
+- [x] Career break portfolio + ATS resume
+- [x] Field presets for working professionals (Engineering, Banking, Accounts, Government / PSU, Sales)
+- [x] Doctor / Healthcare portfolio + CV
 - [ ] Optional AI help to improve project and bio descriptions
 
 ---

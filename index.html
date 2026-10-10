@@ -223,6 +223,7 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
 .guide details p,.guide details li{font-size:14px;color:var(--muted)}
 .who{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:16px 0 0;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
 .who-l{font-weight:600;font-size:14px}
+.who .seg{flex-wrap:wrap}
 .who .seg button{padding:9px 13px;font-size:14px}
 .soon{font-size:12px;color:var(--muted)}
 .paste{border:1.5px dashed var(--brand);border-radius:12px;margin:0 0 14px;background:var(--brand-soft)}
@@ -273,9 +274,8 @@ pre.tree{margin:0;font-size:12.5px;line-height:1.55;background:var(--input);bord
   <div class="who" role="group" aria-label="Who is this portfolio for?">
     <span class="who-l">I am a</span>
     <div class="seg" id="typeSeg">
-      <button type="button" data-type="student">🎓 Student</button><button type="button" data-type="professor">🧑‍🏫 Professor / Academic</button>
+      <button type="button" data-type="student">🎓 Student</button><button type="button" data-type="fresher">💼 Fresher</button><button type="button" data-type="professional">🏢 Working professional</button><button type="button" data-type="return">🌱 Career break</button><button type="button" data-type="doctor">🩺 Doctor / Healthcare</button><button type="button" data-type="professor">🧑‍🏫 Professor / Academic</button>
     </div>
-    <span class="soon">Fresher · Working professional · Career break: coming soon</span>
   </div>
   <div class="toolbar">
     <button class="btn" id="sampleBtn">✨ Fill sample data</button>
@@ -758,6 +758,7 @@ window.addEventListener('beforeunload', () => { if (saveTimer) saveNow(); });
 let redrawAvatar = () => {};
 
 function fieldEl(f, obj, onChange){
+  if (f.hideEmpty && !String(obj[f.k] || '').trim()) return h('div', {hidden:true});
   const isFull = f.full || ['textarea','tags','photo'].includes(f.t);
   const wrap = h('div', {class: 'field' + (isFull ? ' full' : '')});
 
@@ -781,6 +782,7 @@ function fieldEl(f, obj, onChange){
     input = h('select', {id});
     input.append(h('option', {value:''}, 'Select…'));
     f.opts.forEach(o => input.append(h('option', {value:o}, o)));
+    if (obj[f.k] && !f.opts.includes(obj[f.k])) input.append(h('option', {value: obj[f.k]}, obj[f.k]));
   } else {
     const type = {email:'email', tel:'tel', url:'url', number:'number'}[f.t] || 'text';
     input = h('input', {id, type, placeholder: f.ph || '', min: f.t === 'number' ? 1 : null,
@@ -943,7 +945,7 @@ function itemEl(s, arr, it, i, body){
 function render(){
   const form = $('#form'), chips = $('#chips');
   form.innerHTML = ''; chips.innerHTML = '';
-  TYPE.schema.forEach((s, idx) => {
+  formSchema().forEach((s, idx) => {
     const tagCls = s.need === 'Required' ? 'tag req' : 'tag';
     const card = h('details', {class:'card' + (s.list ? ' has-count' : ''), id:'sec-' + s.id, open: idx < 2},
       h('summary', {}, h('span', {class:'ic'}, s.icon), s.title, h('span', {class:tagCls}, s.need), s.list ? h('span', {class:'count'}) : null));
@@ -953,7 +955,7 @@ function render(){
     else {
       if (s.intro) body.append(h('p', {class:'intro'}, s.intro));
       const g = h('div', {class:'grid'});
-      s.fields.forEach(f => g.append(fieldEl(f, state[s.id], k => { if (s.id === 'profile' && k === 'name') redrawAvatar(); changed(); })));
+      s.fields.forEach(f => g.append(fieldEl(f, state[s.id], k => { if (s.id === 'profile' && k === 'name') redrawAvatar(); changed(); if (s.id === 'profile' && k === 'profession'){ render(); toast('Form labels and examples updated for ' + (state.profile.profession || 'your field')); } })));
       body.append(g);
       form.append(card);
     }
@@ -1081,6 +1083,9 @@ const SAMPLE = {
   activities: [ {role:'Technical Secretary', org:'IEEE Student Branch', period:'2025 – Present', desc:'Organised 3 technical events with 200+ participants.'} ],
   more: { languages:['English','Tamil','Hindi'], interests:['Robotics','Chess','Photography'] }
 };
+
+/* Deep copy that works in every browser (older iPhones lack structuredClone) */
+const deepCopy = o => JSON.parse(JSON.stringify(o));
 
 /* ======================================================================
    10b. PROFESSOR / ACADEMIC: form schema, checks and sample data
@@ -1584,6 +1589,969 @@ const PROF_SAMPLE = {
 };
 
 /* ======================================================================
+   10c. FRESHER: student form, adapted for the first job hunt
+   ====================================================================== */
+const FRESHER_SCHEMA = (() => {
+  const S = deepCopy(SCHEMA);
+  const prof = S.find(s => s.id === 'profile');
+  prof.fields = [
+    {k:'photo', t:'photo', label:'Profile photo'},
+    {k:'name', t:'text', label:'Full name', req:true, ph:'Divya Shankar'},
+    {k:'headline', t:'text', label:'Headline', ph:'B.Tech IT graduate · Aspiring software developer', hint:'One line shown under your name.'},
+    {k:'degree', t:'text', label:'Degree', req:true, ph:'B.E. / B.Tech / B.Sc / BCA'},
+    {k:'branch', t:'text', label:'Branch / major', req:true, ph:'Information Technology'},
+    {k:'college', t:'text', label:'College', req:true, ph:'Your college name'},
+    {k:'gradYear', t:'text', label:'Year of passing', req:true, ph:'2025'},
+    {k:'city', t:'text', label:'Current city', ph:'Chennai'},
+    {k:'targetRole', t:'text', label:'Roles you are looking for', req:true, full:true, ph:'Software Developer, Data Analyst, Graduate Engineer Trainee'},
+    {k:'availability', t:'select', label:'Availability', opts:['Immediate joiner','Within 15 days','Within 30 days','After final results']},
+    {k:'locations', t:'tags', label:'Preferred job locations', ph:'Chennai, Bengaluru, Remote'},
+    {k:'objective', t:'textarea', label:'Professional summary', rows:4, max:450,
+     ph:'2–3 lines: your degree, strongest skills, best project or internship, and the role you want.'},
+    {k:'openToWork', t:'check', label:'Show an "Open to work" badge with your target role', def:true}
+  ];
+  S.find(s => s.id === 'education').intro = 'Start with your degree. Add Class 12 and Class 10 too: many companies ask for them in campus and off-campus drives.';
+  S.find(s => s.id === 'projects').intro = 'Your strongest proof of skill. Put your final-year project first and tick "Featured" on your best 2–3.';
+  const i = S.findIndex(s => s.id === 'internships');
+  S.splice(i, 0, {id:'work', title:'Work experience (if any)', chip:'Work', icon:'💼', need:'Optional',
+    list:true, itemLabel:'job', titleKey:'role', subKey:'company',
+    intro:'Full-time, part-time, freelance or contract work, even short stints. Leave empty if you have none: projects and internships count too.',
+    fields:[
+      {k:'role', t:'text', label:'Job title', req:true, ph:'Junior Web Developer'},
+      {k:'company', t:'text', label:'Company / client', ph:'Company name'},
+      {k:'type', t:'select', label:'Type', opts:['Full-time','Part-time','Contract','Freelance','Apprenticeship']},
+      {k:'location', t:'text', label:'Location', ph:'Chennai / Remote'},
+      {k:'start', t:'text', label:'Start', ph:'Jul 2025'},
+      {k:'end', t:'text', label:'End', ph:'Present'},
+      {k:'points', t:'textarea', label:'What you did', rows:4, full:true,
+       ph:'One point per line. Start each with an action verb:\nBuilt…\nImproved… by…', hint:'One point per line. These become resume bullets.'}
+    ]});
+  return S;
+})();
+const FRESHER_CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Headline under your name', d => d.profile.headline.trim()],
+  ['Degree, branch, college & year of passing', d => d.profile.degree.trim() && d.profile.branch.trim() && d.profile.college.trim() && d.profile.gradYear.trim()],
+  ['Roles you are looking for', d => d.profile.targetRole.trim()],
+  ['Professional summary (40+ characters)', d => d.profile.objective.trim().length >= 40],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['Phone number', d => d.contact.phone.replace(/\D/g,'').length >= 10],
+  ['LinkedIn link', d => URL_RE.test(d.contact.linkedin)],
+  ['GitHub or portfolio link', d => URL_RE.test(d.contact.github) || URL_RE.test(d.contact.website)],
+  ['Degree in Education', d => d.education.some(e => e.institution.trim())],
+  ['At least 8 skills', d => skillCount(d) >= 8],
+  ['At least 2 projects', d => d.projects.filter(p => p.title.trim()).length >= 2],
+  ['A project with a GitHub or demo link', d => d.projects.some(p => URL_RE.test(p.github) || URL_RE.test(p.demo))],
+  ['Internship, job or certification', d => filled(d.internships).length + filled(d.work).length + filled(d.certifications).length >= 1],
+  ['Achievement or activity', d => filled(d.achievements).length + filled(d.activities).length >= 1]
+];
+const FRESHER_SAMPLE = {
+  profile: { name:'Divya Shankar', headline:'B.Tech IT graduate · Full-stack web developer', degree:'B.Tech', branch:'Information Technology',
+    college:'Sample College of Engineering', gradYear:'2025', city:'Chennai', targetRole:'Software Developer, Full-stack Developer',
+    availability:'Immediate joiner', locations:['Chennai','Bengaluru','Remote'],
+    objective:'B.Tech IT graduate (2025, CGPA 8.2) who builds full-stack web apps with React and Node.js. Completed a 3-month internship and a freelance project for a local business. Looking for a software developer role where I can ship real features from day one.',
+    openToWork:true, photo:'' },
+  contact: { email:'divya.shankar@example.com', phone:'+91 98765 12345', linkedin:'https://www.linkedin.com/in/divya-shankar-example',
+    github:'https://github.com/divya-shankar-example', website:'' },
+  profiles: [ {platform:'LeetCode', url:'https://leetcode.com/u/divya-example'}, {platform:'HackerRank', url:'https://www.hackerrank.com/divya_example'} ],
+  education: [
+    {level:'Degree (UG)', institution:'Sample College of Engineering', board:'Anna University', scoreType:'CGPA', score:'8.2', start:'2021', end:'2025'},
+    {level:'Class 12 / HSC', institution:'Sample Matriculation Hr. Sec. School', board:'State Board', scoreType:'Percentage', score:'89', start:'', end:'2021'},
+    {level:'Class 10 / SSLC', institution:'Sample Matriculation Hr. Sec. School', board:'State Board', scoreType:'Percentage', score:'92', start:'', end:'2019'}
+  ],
+  educationExtra: { showSchool:true, coursework:['Data Structures','Database Management Systems','Web Technologies','Operating Systems'] },
+  skills: { languages:['JavaScript','Python','Java','SQL'], tools:['React','Node.js','Express','MongoDB','Git','Postman'],
+    domain:['Full-stack development','REST APIs','Responsive web design'], soft:['Communication','Teamwork','Time management'] },
+  projects: [
+    {title:'Campus Placement Portal', category:'Final-year project', featured:true,
+     description:'Students had no single place to track placement drives. Built a web portal where students register, upload resumes and get drive alerts, and the placement cell shortlists candidates.',
+     tech:['React','Node.js','MongoDB','JWT'], role:'Team lead · backend', team:'3', duration:'Jan – Apr 2025',
+     outcome:'Used by 400+ students in the 2025 placement season', github:'https://github.com/divya-shankar-example/placement-portal', demo:''},
+    {title:'Expense Tracker PWA', category:'Personal project', featured:true,
+     description:'An offline-first expense tracker that works on phones without internet and syncs when back online.',
+     tech:['JavaScript','IndexedDB','Service Workers','Chart.js'], role:'Individual', team:'1', duration:'Aug 2025',
+     outcome:'Lighthouse score 98 for performance', github:'https://github.com/divya-shankar-example/expense-pwa', demo:'https://example.com/expense-demo'},
+    {title:'Hostel Complaint Chatbot', category:'Hackathon project', featured:false,
+     description:'A chatbot that logs hostel maintenance complaints and routes them to the right staff.',
+     tech:['Python','Flask','Dialogflow'], role:'Bot logic & API', team:'4', duration:'Mar 2024',
+     outcome:'Top 5 out of 60 teams', github:'', demo:''}
+  ],
+  work: [ {role:'Freelance Web Developer', company:'Sample Bakery (local business)', type:'Freelance', location:'Chennai', start:'Jun 2025', end:'Aug 2025',
+    points:'Built and launched an online order website with a WhatsApp ordering button\nCut phone-order handling time for the owner by about half'} ],
+  internships: [ {org:'Sample Software Solutions', role:'Web Development Intern', mode:'Hybrid', location:'Chennai', start:'Jan 2025', end:'Mar 2025',
+    points:'Built 6 reusable React components for the admin dashboard\nWrote REST API tests in Postman for 20+ endpoints\nFixed 15 UI bugs reported by QA', link:''} ],
+  certifications: [
+    {name:'Full Stack Web Development', issuer:'NPTEL', date:'Oct 2024', link:'https://nptel.ac.in/'},
+    {name:'Responsive Web Design', issuer:'freeCodeCamp', date:'Jun 2023', link:'https://www.freecodecamp.org/'}
+  ],
+  achievements: [ {title:'Top 5, Smart Campus Hackathon', org:'State-level tech fest', date:'Mar 2024', desc:''} ],
+  publications: [],
+  workshops: [ {title:'Cloud Fundamentals Bootcamp', organizer:'Department of IT', date:'Sep 2024'} ],
+  activities: [ {role:'Coding Club Coordinator', org:'Sample College of Engineering', period:'2023 – 2025', desc:'Ran weekly coding contests for 120+ members.'} ],
+  more: { languages:['English','Tamil'], interests:['Open source','Badminton'] }
+};
+
+/* ======================================================================
+   10d. WORKING PROFESSIONAL
+   ====================================================================== */
+const PROF_FIELDS = ['IT / Software','Engineering (civil, mechanical, electrical)','Banking & finance','Accounts & audit','Government / PSU','Sales & marketing','Other'];
+/* Labels and examples that change with the chosen field */
+const FIELD_PRESETS = {
+  'IT / Software': {code:true, techShort:'Tech'},
+  'Engineering (civil, mechanical, electrical)': {code:false, techShort:'Tools',
+    skills:{domain:['Core expertise','Structural design, Site execution, Quality control, Quantity surveying'], languages:['Codes & standards','IS 456, IS 800, IRC codes, National Building Code'],
+      tools:['Software & tools','AutoCAD, STAAD.Pro, ETABS, Primavera P6, MS Project'], soft:['Leadership & soft skills','Site team management, Contractor coordination']},
+    tech:['Software / methods used','AutoCAD, STAAD.Pro, Primavera…'], about:'Metro rail viaduct · ₹450 crore · 120 workers on site',
+    points:'One per line, with numbers:\nDelivered a ₹120 crore flyover 2 months ahead of schedule\nCut steel wastage by 12% with bar-bending schedule optimisation',
+    highlights:'Delivered a ₹120 crore flyover 2 months ahead of schedule\nCut steel wastage by 12% through bar-bending optimisation\nZero lost-time accidents across 3 years of site work',
+    projTitle:'Key projects', cats:['Construction project','Design project','Consultancy','Site supervision','Other'], projTech:'Software / methods'},
+  'Banking & finance': {code:false, techShort:'Systems',
+    skills:{domain:['Core expertise','Retail banking, Credit appraisal, KYC / AML, Branch operations'], languages:['Products & regulations','Home loans, MSME loans, RBI guidelines, NPA recovery'],
+      tools:['Systems & software','Finacle, Flexcube, MS Excel'], soft:['Leadership & soft skills','Customer relationships, Team leadership']},
+    tech:['Products / systems handled','Finacle, MSME loans, Forex…'], about:'Branch with ₹220 crore business · 14 staff',
+    points:'One per line, with numbers:\nGrew branch deposits by 28% (₹60 crore) in 2 years\nReduced NPAs from 6.1% to 2.3%',
+    highlights:'Grew branch deposits by 28% (₹60 crore) in 2 years\nCut NPAs from 6.1% to 2.3% through focused recovery\nOpened 1,200+ accounts under financial-inclusion schemes',
+    projTitle:'Key assignments', cats:['Business growth','Recovery / NPA','Audit / compliance','Process improvement','Product launch','Other'], projTech:'Products / systems'},
+  'Accounts & audit': {code:false, techShort:'Software',
+    skills:{domain:['Core expertise','Statutory audit, GST, TDS, Financial reporting, Budgeting'], languages:['Standards & laws','Ind AS, Companies Act, Income Tax Act, GST Act'],
+      tools:['Software','Tally Prime, SAP FICO, MS Excel, Zoho Books'], soft:['Leadership & soft skills','Attention to detail, Team coordination']},
+    tech:['Software / areas','Tally, SAP, GST returns…'], about:'Accounts wing · 3 divisions · ₹80 crore annual budget',
+    points:'One per line, with numbers:\nClosed monthly accounts in 5 days instead of 12\nRecovered ₹1.2 crore through vendor reconciliation',
+    highlights:'Closed monthly accounts in 5 days instead of 12\nRecovered ₹1.2 crore through vendor reconciliation\nCleared 3 years of audit objections with no penalties',
+    projTitle:'Key assignments & audits', cats:['Audit','ERP / GST implementation','Process improvement','Budgeting & reporting','Other'], projTech:'Software / areas'},
+  'Government / PSU': {code:false, gov:true, techShort:'Systems',
+    skills:{domain:['Core expertise','Administration, Procurement, Project monitoring'], languages:['Rules & regulations','Service rules, Tender procedures, GFR, RTI Act'],
+      tools:['Systems & software','e-Office, GeM portal, PFMS, MS Excel'], soft:['Leadership & soft skills','Team leadership, Public communication']},
+    tech:['Systems / areas','e-Office, GeM, PFMS…'], about:'Division office · 25 staff',
+    points:'One per line, with numbers (no confidential details):\nMoved 4,000+ files to e-Office, cutting processing time by 40%',
+    highlights:'Moved 4,000+ files to e-Office, cutting processing time by 40%\nCompleted ₹15 crore of procurement on GeM with full audit compliance',
+    projTitle:'Key assignments', cats:['Scheme / programme','Project','Process improvement','Other'], projTech:'Systems / areas'},
+  'Sales & marketing': {code:false, techShort:'Tools',
+    skills:{domain:['Core expertise','B2B sales, Key account management, Digital marketing'], languages:['Markets & products','FMCG, Pharma, SaaS'],
+      tools:['Tools','Salesforce, HubSpot, Google Ads, MS Excel'], soft:['Leadership & soft skills','Negotiation, Presentation, Team leadership']},
+    tech:['Tools / markets','Salesforce, FMCG…'], about:'South India region · 18 distributors',
+    points:'One per line, with numbers:\nGrew regional revenue by 35% (₹9 crore) in 2 years\nWon 14 new key accounts',
+    highlights:'Grew regional revenue by 35% (₹9 crore) in 2 years\nWon 14 new key accounts, including 3 national chains',
+    projTitle:'Key campaigns & accounts', cats:['Campaign','Key account','Product launch','Market expansion','Other'], projTech:'Tools / markets'},
+  'Other': {code:true, techShort:'Tools',
+    skills:{domain:['Core expertise','Your main areas of work'], languages:['Specialised knowledge','Methods, standards or subjects you know well'],
+      tools:['Tools & software','Software and equipment you use'], soft:['Leadership & soft skills','Team leadership, Communication']},
+    tech:['Tools / methods used',''], projTitle:'Key projects', cats:['Work project','Client project','Side project','Other'], projTech:'Tools / methods'}
+};
+const presetFor = D => FIELD_PRESETS[(D.profile || {}).profession] || {};
+const skillLabel = (D, k, dflt) => ((presetFor(D).skills || {})[k] || [dflt])[0];
+
+/* The form, adjusted to the chosen field (working professional & career break) */
+function formSchema(){
+  if (!['professional','return'].includes(TYPE.id) || !state) return TYPE.schema;
+  const P = FIELD_PRESETS[state.profile.profession];
+  if (!P) return TYPE.schema;
+  const S = deepCopy(TYPE.schema);
+  const fld = (sid, k) => ((S.find(s => s.id === sid) || {fields:[]}).fields || []).find(f => f.k === k);
+  if (P.skills) for (const [k, [l, ph]] of Object.entries(P.skills)){ const f = fld('skills', k); if (f){ f.label = l; f.ph = ph; } }
+  const t = fld('experience', 'tech'); if (t && P.tech){ t.label = P.tech[0]; t.ph = P.tech[1]; }
+  const a = fld('experience', 'about'); if (a && P.about) a.ph = P.about;
+  const pt = fld('experience', 'points'); if (pt && P.points) pt.ph = P.points;
+  const hl = fld('profile', 'highlights'); if (hl && P.highlights) hl.ph = P.highlights;
+  const pr = S.find(s => s.id === 'projects');
+  if (pr && TYPE.id === 'professional' && P.projTitle){ pr.title = P.projTitle; pr.chip = P.projTitle.replace(/^Key /, '').replace(/^./, c => c.toUpperCase()); }
+  if (P.cats){ const c = fld('projects', 'category'); if (c) c.opts = TYPE.id === 'return' ? ['Project during break'].concat(P.cats) : P.cats; }
+  if (P.projTech){ const f = fld('projects', 'tech'); if (f){ f.label = P.projTech; f.ph = ''; } }
+  if (P.code === false){
+    [fld('contact', 'github'), fld('projects', 'github')].forEach(f => { if (f) f.hideEmpty = true; });
+    const d = fld('projects', 'demo'); if (d){ d.label = 'Link (photos, report or news)'; d.ph = 'https://…'; }
+  }
+  if (P.gov){
+    S.find(s => s.id === 'profile').intro = 'Government / PSU staff: check your service conduct rules before publishing, and never include confidential or official information.';
+    const o = fld('profile', 'openTo'); if (o) o.label = 'Show an "Open to" badge (government staff usually leave this empty)';
+  }
+  return S;
+}
+
+const PRO_SCHEMA = (() => {
+  const base = id => deepCopy(SCHEMA.find(s => s.id === id));
+  const contact = base('contact');
+  contact.intro = 'Email and phone go on your resume. Links appear as icons on your site.';
+  const profiles = base('profiles');
+  profiles.intro = 'Public profiles that show your work: GitHub activity, Kaggle, Medium, Behance, Stack Overflow and so on.';
+  const skills = base('skills');
+  skills.intro = 'Grouped skills become chips on your site and a Core Skills block on your resume. Use the exact words recruiters search for.';
+  skills.fields = [
+    {k:'domain', t:'tags', label:'Core expertise', ph:'Cloud architecture, Payments, Embedded firmware…'},
+    {k:'languages', t:'tags', label:'Technologies & languages', ph:'Java, Python, TypeScript, SQL…'},
+    {k:'tools', t:'tags', label:'Tools & platforms', ph:'AWS, Kubernetes, Jenkins, Jira, SAP…'},
+    {k:'soft', t:'tags', label:'Leadership & soft skills', ph:'Team leadership, Stakeholder management…'}
+  ];
+  const projects = base('projects');
+  projects.title = 'Key projects'; projects.chip = 'Projects'; projects.need = 'Recommended';
+  projects.intro = 'Only share what your employer allows to be public. Describe the problem, your role and the measurable result. Tick "Featured" on your best 2–3.';
+  projects.fields.find(f => f.k === 'category').opts = ['Work project','Client project','Open source','Side project','Freelance project'];
+  const certs = base('certifications');
+  const vol = base('activities');
+  vol.title = 'Volunteering & leadership'; vol.chip = 'Volunteering';
+  vol.intro = 'Mentoring, community leadership, NGO work, professional bodies.';
+  const more = base('more');
+  more.title = 'Licences, memberships & languages';
+  more.fields = [{k:'licences', t:'tags', label:'Licences, registrations & memberships', ph:'Chartered Engineer (IEI), ICAI Member, CAIIB, PMP'}].concat(more.fields);
+  return [
+    { id:'profile', title:'Profile', chip:'Profile', icon:'👤', need:'Required',
+      intro:'Shown in the Home section of your portfolio and at the top of your resume.',
+      fields:[
+        {k:'photo', t:'photo', label:'Profile photo'},
+        {k:'name', t:'text', label:'Full name', req:true, ph:'Karthik Raman'},
+        {k:'profession', t:'select', label:'Your field', opts:PROF_FIELDS, hint:'Changes the labels and examples in this form to suit your field.'},
+        {k:'headline', t:'text', label:'Headline', full:true, ph:'Senior Software Engineer · Cloud & Payments', hint:'One line shown under your name.'},
+        {k:'role', t:'text', label:'Current designation', req:true, ph:'Senior Software Engineer'},
+        {k:'company', t:'text', label:'Current company', ph:'Company name (leave empty to keep private)'},
+        {k:'years', t:'number', label:'Years of experience', req:true, ph:'7'},
+        {k:'city', t:'text', label:'City', ph:'Bengaluru'},
+        {k:'summary', t:'textarea', label:'Professional summary', rows:4, max:600,
+         ph:'3–4 lines: your role and years of experience, the domain you work in, what you are known for, and one big result.'},
+        {k:'highlights', t:'textarea', label:'Career highlights (one per line, with numbers)', rows:4, full:true,
+         ph:'Cut cloud costs by 32% (₹1.4 crore a year)\nLed a team of 6 to launch the UPI payments module\nReduced API latency from 800 ms to 120 ms', hint:'Your 3–5 strongest results. They appear near the top of your site and resume.'},
+        {k:'openTo', t:'select', label:'Show an "Open to" badge', opts:['New opportunities','Freelance & consulting','Speaking & mentoring','Collaboration on side projects']},
+        {k:'notice', t:'select', label:'Notice period (optional)', opts:['Immediate','15 days','30 days','60 days','90 days','Serving notice']},
+        {k:'locations', t:'tags', label:'Preferred locations (optional)', ph:'Bengaluru, Chennai, Remote'}
+      ]},
+    contact, profiles,
+    { id:'experience', title:'Work experience', chip:'Experience', icon:'🏢', need:'Required',
+      list:true, itemLabel:'role', titleKey:'role', subKey:'company',
+      intro:'Newest first. For each role, list achievements with numbers, not just duties. A promotion in the same company can be a separate entry.',
+      fields:[
+        {k:'role', t:'text', label:'Designation', req:true, ph:'Senior Software Engineer'},
+        {k:'company', t:'text', label:'Company', ph:'Company name'},
+        {k:'type', t:'select', label:'Type', opts:['Full-time','Contract','Part-time','Freelance','Internship']},
+        {k:'location', t:'text', label:'Location', ph:'Bengaluru / Remote'},
+        {k:'start', t:'text', label:'From', ph:'Apr 2022'},
+        {k:'end', t:'text', label:'To', ph:'Present'},
+        {k:'about', t:'text', label:'Team / product in one line (optional)', full:true, ph:'Payments platform team, 40 engineers, 20M users'},
+        {k:'points', t:'textarea', label:'Key achievements', rows:5, full:true,
+         ph:'One per line. Start with an action verb and add a number:\nDesigned … that cut … by 30%\nLed … team of 5 to …', hint:'One point per line. These become resume bullets.'},
+        {k:'tech', t:'tags', label:'Technologies used', ph:'Java, Spring Boot, AWS…'}
+      ]},
+    skills, projects,
+    { id:'education', title:'Education', chip:'Education', icon:'🎓', need:'Required',
+      list:true, itemLabel:'degree', titleKey:'degree', subKey:'institution',
+      intro:'Highest degree first. School marks are usually not needed after a few years of experience.',
+      fields:[
+        {k:'degree', t:'text', label:'Degree', req:true, ph:'B.E. / MBA / M.Tech'},
+        {k:'field', t:'text', label:'Specialisation', ph:'Computer Science'},
+        {k:'institution', t:'text', label:'Institution', ph:'College / university'},
+        {k:'year', t:'text', label:'Year', ph:'2018'},
+        {k:'score', t:'text', label:'CGPA / class (optional)', ph:'8.1 CGPA'}
+      ]},
+    certs,
+    { id:'awards', title:'Awards & recognition', chip:'Awards', icon:'🏆', need:'Optional',
+      list:true, itemLabel:'award', titleKey:'title', subKey:'org',
+      fields:[
+        {k:'title', t:'text', label:'Award', req:true, ph:'Star Performer of the Year'},
+        {k:'org', t:'text', label:'Given by', ph:'Company / event'},
+        {k:'year', t:'text', label:'Year', ph:'2024'},
+        {k:'desc', t:'text', label:'Why (optional)', full:true, ph:'For leading the payments migration with zero downtime'}
+      ]},
+    { id:'talks', title:'Talks, articles & patents', chip:'Talks', icon:'🎤', need:'Optional',
+      list:true, itemLabel:'item', titleKey:'title', subKey:'type',
+      fields:[
+        {k:'title', t:'text', label:'Title', req:true, full:true, ph:'Scaling UPI payments to 10k TPS'},
+        {k:'type', t:'select', label:'Type', opts:['Conference talk','Meetup talk','Article / blog','Paper','Patent','Podcast / video','Workshop taught']},
+        {k:'venue', t:'text', label:'Event / publication', ph:'Sample Tech Conference 2025'},
+        {k:'date', t:'text', label:'Date', ph:'Mar 2025'},
+        {k:'link', t:'url', label:'Link', ph:'https://…'}
+      ]},
+    vol, more
+  ];
+})();
+
+const PRO_CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Headline under your name', d => d.profile.headline.trim()],
+  ['Current designation & years of experience', d => d.profile.role.trim() && +d.profile.years > 0],
+  ['Professional summary (60+ characters)', d => d.profile.summary.trim().length >= 60],
+  ['At least 3 career highlights', d => d.profile.highlights.split('\n').filter(l => l.trim()).length >= 3],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['Phone number', d => d.contact.phone.replace(/\D/g,'').length >= 10],
+  ['LinkedIn link', d => URL_RE.test(d.contact.linkedin)],
+  ['Current role in Experience', d => d.experience.some(x => x.role.trim())],
+  ['Achievements under every role', d => { const r = d.experience.filter(x => x.role.trim()); return r.length && r.every(x => x.points.trim()); }],
+  ['At least 10 skills', d => skillCount(d) >= 10],
+  ['Highest degree in Education', d => d.education.some(e => e.degree.trim())],
+  ['A project, talk or article', d => filled(d.projects).length + filled(d.talks).length >= 1],
+  ['A certification or award', d => filled(d.certifications).length + filled(d.awards).length >= 1]
+];
+
+const PRO_SAMPLE = {
+  profile: { name:'Karthik Raman', profession:'IT / Software', headline:'Senior Software Engineer · Cloud & Payments', role:'Senior Software Engineer', company:'Sample Fintech Pvt Ltd',
+    years:'7', city:'Bengaluru',
+    summary:'Senior software engineer with 7 years of experience building high-traffic payment systems on AWS. Known for turning slow, costly services into fast, reliable ones, and for mentoring engineers. Currently leading backend work for a UPI platform used by 20 million people.',
+    highlights:'Cut AWS costs by 32% (about Rs. 1.4 crore a year) by redesigning batch jobs\nLed a team of 6 to launch the UPI AutoPay module in 4 months\nReduced payment API latency from 800 ms to 120 ms\nMentored 9 engineers, 4 promoted within a year',
+    openTo:'New opportunities', notice:'60 days', locations:['Bengaluru','Remote'], photo:'' },
+  contact: { email:'karthik.raman@example.com', phone:'+91 98765 67890', linkedin:'https://www.linkedin.com/in/karthik-raman-example',
+    github:'https://github.com/karthik-raman-example', website:'https://karthik.example.com' },
+  profiles: [ {platform:'Medium / Blog', url:'https://medium.com/@karthik-example'} ],
+  experience: [
+    {role:'Senior Software Engineer', company:'Sample Fintech Pvt Ltd', type:'Full-time', location:'Bengaluru', start:'Apr 2022', end:'Present',
+     about:'Payments platform team · 40 engineers · 20M users',
+     points:'Led a team of 6 to launch the UPI AutoPay module in 4 months\nReduced payment API latency from 800 ms to 120 ms with caching and async processing\nCut AWS costs by 32% by moving batch jobs to spot instances', tech:['Java','Spring Boot','AWS','Kafka','Redis']},
+    {role:'Software Engineer', company:'Sample Software Services', type:'Full-time', location:'Chennai', start:'Jul 2019', end:'Mar 2022',
+     about:'Banking client projects',
+     points:'Built REST APIs for a loan-origination system serving 12 banks\nAutomated release pipeline, cutting deployment time from 2 hours to 15 minutes', tech:['Java','Oracle','Jenkins','Docker']},
+    {role:'Associate Engineer', company:'Sample Software Services', type:'Full-time', location:'Chennai', start:'Jun 2018', end:'Jun 2019',
+     about:'', points:'Wrote automated tests that raised code coverage from 40% to 78%', tech:['Java','JUnit','Selenium']}
+  ],
+  skills: { domain:['Payments (UPI, cards)','Distributed systems','System design','Cloud cost optimisation'], languages:['Java','Python','SQL','TypeScript'],
+    tools:['AWS','Kubernetes','Kafka','Redis','Jenkins','Terraform'], soft:['Team leadership','Mentoring','Stakeholder communication'] },
+  projects: [
+    {title:'UPI AutoPay module', category:'Work project', featured:true,
+     description:'Recurring payments needed manual approval every month. Designed and led the build of mandate-based AutoPay on the UPI platform.',
+     tech:['Java','Kafka','PostgreSQL'], role:'Tech lead', team:'6', duration:'2023', outcome:'2.1 million mandates created in the first 6 months', github:'', demo:''},
+    {title:'open-ratelimiter', category:'Open source', featured:true,
+     description:'A lightweight distributed rate-limiter library for Spring Boot services.',
+     tech:['Java','Redis'], role:'Author & maintainer', team:'1', duration:'2024', outcome:'350+ GitHub stars, used in 3 companies', github:'https://github.com/karthik-raman-example/open-ratelimiter', demo:''}
+  ],
+  education: [ {degree:'B.E.', field:'Computer Science and Engineering', institution:'Sample College of Engineering, Anna University', year:'2018', score:'8.1 CGPA'} ],
+  certifications: [
+    {name:'AWS Certified Solutions Architect – Associate', issuer:'Amazon Web Services', date:'2023', link:'https://aws.amazon.com/verification'},
+    {name:'Certified Kubernetes Application Developer (CKAD)', issuer:'The Linux Foundation', date:'2024', link:''}
+  ],
+  awards: [ {title:'Star Performer of the Year', org:'Sample Fintech Pvt Ltd', year:'2024', desc:'For leading the AutoPay launch'} ],
+  talks: [ {title:'Scaling UPI payments without scaling costs', type:'Meetup talk', venue:'Bengaluru Java User Group', date:'Feb 2025', link:''},
+    {title:'What I learned cutting our AWS bill by a third', type:'Article / blog', venue:'Medium', date:'Nov 2024', link:'https://medium.com/@karthik-example'} ],
+  activities: [ {role:'Mentor', org:'Sample Women in Tech programme', period:'2023 – Present', desc:'Mentor 3 early-career engineers each cohort.'} ],
+  more: { licences:['AWS Certified Solutions Architect', 'Member, Bengaluru Java User Group'], languages:['English','Tamil','Kannada'], interests:['Trekking','Chess'] }
+};
+
+/* ----- Website sections for working professionals ----- */
+function proSite(D, K, opt){
+  const {ext, chips, span, bullets, sec, hlItem, entry, groupCards, filters} = K;
+  const p = D.profile, c = D.contact, sk = D.skills;
+  const exp = D.experience.filter(x => x.role.trim() || x.company.trim());
+  const projects = D.projects.filter(x => x.title.trim()).map((x, i) => ({...x, _i: i})).sort((a, b) => (b.featured - a.featured) || (a._i - b._i));
+  const edu = D.education.filter(e => e.degree.trim() || e.institution.trim());
+  const certs = D.certifications.filter(x => x.name.trim());
+  const awards = D.awards.filter(x => x.title.trim());
+  const talks = D.talks.filter(x => x.title.trim());
+  const vol = D.activities.filter(x => x.role.trim() || x.org.trim());
+  const hl = p.highlights.split('\n').map(l => l.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+  const companies = new Set(exp.map(x => x.company.trim().toLowerCase()).filter(Boolean)).size;
+  const PR = presetFor(D);
+  const skillGroups = [[skillLabel(D, 'domain', 'Core expertise'),'spark',sk.domain],[skillLabel(D, 'languages', 'Technologies & languages'),'code',sk.languages],[skillLabel(D, 'tools', 'Tools & platforms'),'brief',sk.tools],[skillLabel(D, 'soft', 'Leadership & soft skills'),'user',sk.soft]].filter(g => g[2].length);
+  const S = [];
+  const ret = D.userType === 'return', B = D.careerBreak || {};
+  const hasBreak = ret && !!(String(B.period || '').trim() || String(B.activities || '').trim());
+  const modes = (p.workModes || []).join(', ');
+  const avail = !p.availability ? '' : p.availability === 'Immediately' ? 'Available immediately' : 'Available ' + p.availability.charAt(0).toLowerCase() + p.availability.slice(1);
+
+  const facts = ret ? [['brief','Returning to', p.target],['spark','Experience', +p.years ? p.years + ' years' : ''],['home','Last role', nz(p.role, p.company).join(' · ')],
+    ['check','Availability', avail],['user','Work preference', modes],['pin','Location', p.city],['home','Preferred locations', (p.locations || []).join(', ')],['globe','Languages', D.more.languages.join(', ')]]
+    .filter(f => String(f[2] || '').trim()) : [['brief','Current role', nz(p.role, p.company).join(' · ')],['spark','Experience', +p.years ? p.years + '+ years' : ''],['pin','Location', p.city],
+    ['home','Preferred locations', (p.locations || []).join(', ')],['check','Notice period', p.openTo === 'New opportunities' ? p.notice : ''],['globe','Languages', D.more.languages.join(', ')]]
+    .filter(f => String(f[2] || '').trim());
+  if (p.summary.trim() || facts.length || hl.length){
+    S.push(['about','About','user', sec('about','About','Profile',
+      `<div class="about"><div class="rv">${p.summary.trim() ? `<p class="lead">${esc(p.summary).replace(/\n/g, '<br>')}</p>` : ''}` +
+      `${D.more.interests.length ? `<p class="label">Interests</p>${chips(D.more.interests)}` : ''}</div>` +
+      `${facts.length ? `<div class="card facts rv">${facts.map(([i, l, v]) => `<div class="fact">${ic(i)}<div><b>${l}</b>${esc(v)}</div></div>`).join('')}</div>` : ''}</div>` +
+      `${hl.length ? `<h3 class="subh rv" style="margin-top:34px">${ic('trophy')}Career highlights</h3><div class="grid">${hl.map(t => `<div class="card rv"><p class="outcome">${ic('check')}<span>${esc(t)}</span></p></div>`).join('')}</div>` : ''}`)]);
+  }
+  if (exp.length || hasBreak){
+    const brk = hasBreak ? entry('Career break', B.showReason && B.reason ? esc(B.reason) : '', B.period, bullets(B.activities)) : '';
+    S.push(['experience','Experience','brief', sec('experience','Experience', ret ? 'Experience' : 'Where I have worked',
+      `<div class="list">${brk}${exp.map(x => entry(x.role || x.company, nz(x.role ? x.company : '', x.type !== 'Full-time' ? x.type : '', x.location).map(esc).join(' · '), span(x.start, x.end),
+        (x.about.trim() ? `<p class="small muted" style="margin-top:8px">${esc(x.about)}</p>` : '') + bullets(x.points) + (x.tech.length ? `<div style="margin-top:12px">${chips(x.tech)}</div>` : ''))).join('')}</div>`)]);
+  }
+  if (skillGroups.length){
+    S.push(['skills','Skills','spark', sec('skills','Skills','What I work with',
+      `<div class="skillgroups">${skillGroups.map(([l, i, a]) => `<div class="card rv"><h3>${ic(i)}${l}</h3>${chips(a)}</div>`).join('')}</div>`)]);
+  }
+  if (projects.length){
+    const cats = [...new Set(projects.map(x => x.category).filter(Boolean))];
+    const fl = projects.length > 3 ? filters(cats.map(k => [slug(k), k.replace(/ project$/, '')]), 'Filter projects') : '';
+    S.push(['projects','Projects','folder', sec('projects','Projects', ret ? 'Recent work' : (PR.projTitle && PR.projTitle !== 'Key projects' ? PR.projTitle.replace(/^Key /, 'Key ') : 'Selected work'), fl + `<div class="grid">${projects.map(x => {
+      const meta = nz(x.role, x.team && x.team !== '1' ? 'Team of ' + x.team : '', x.duration).map(esc).join(' · ');
+      const links = (safeUrl(x.github) ? `<a href="${esc(x.github)}"${ext}>${ic('code')}Code</a>` : '') + (safeUrl(x.demo) ? `<a href="${esc(x.demo)}"${ext}>${ic('ext')}${PR.code === false ? 'View' : 'Live'}</a>` : '');
+      return `<article class="card proj rv" data-cat="${esc(slug(x.category))}"><div class="proj-top">${x.category ? `<span class="tag">${esc(x.category)}</span>` : '<span></span>'}${x.featured ? '<span class="star">★ Featured</span>' : ''}</div>` +
+        `<h3>${esc(x.title)}</h3>${x.description.trim() ? `<p class="muted">${esc(x.description)}</p>` : ''}` +
+        `${x.outcome.trim() ? `<p class="outcome">${ic('check')}<span>${esc(x.outcome)}</span></p>` : ''}${x.tech.length ? chips(x.tech) : ''}` +
+        `${meta ? `<p class="small muted">${meta}</p>` : ''}${links ? `<div class="plinks">${links}</div>` : ''}</article>`;
+    }).join('')}</div>`)]);
+  }
+  if (edu.length || certs.length){
+    let b = edu.length ? `<div class="list">${edu.map(e => entry(nz(e.degree, e.field).join(e.degree && e.field ? ' in ' : ''), esc(e.institution), e.year, e.score.trim() ? `<span class="score">${esc(e.score)}</span>` : '')).join('')}</div>` : '';
+    if (certs.length) b += `<h3 class="subh rv" style="margin-top:${edu.length ? 34 : 0}px">${ic('award')}Certifications</h3><div class="grid">${certs.map(x => `<article class="card cert rv"><h3>${esc(x.name)}</h3><p class="small muted">${nz(x.issuer, x.date).map(esc).join(' · ')}</p>` +
+      `${safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('check')}Verify</a>` : ''}</article>`).join('')}</div>`;
+    S.push(['education','Education','cap', sec('education','Education', certs.length ? 'Education &amp; certifications' : 'Education', b)]);
+  }
+  const groups = [];
+  if (awards.length) groups.push(['trophy','Awards &amp; recognition', awards.map(x => hlItem(x.title, nz(x.org, x.year), x.desc)).join('')]);
+  if (talks.length) groups.push(['spark','Talks, articles &amp; patents', talks.map(x => hlItem(x.title, nz(x.type, x.venue, x.date), '', x.link, 'Open')).join('')]);
+  if (vol.length) groups.push(['user','Volunteering &amp; leadership', vol.map(x => hlItem(nz(x.role, x.org).join(', '), nz(x.period), x.desc)).join('')]);
+  if ((D.more.licences || []).length) groups.push(['award','Licences &amp; memberships', chips(D.more.licences)]);
+  if (groups.length) S.push(['highlights','Highlights','trophy', sec('highlights','Beyond work','Recognition &amp; community', groupCards(groups))]);
+
+  const lines = [];
+  if (p.city.trim()) lines.push(['pin', esc(p.city)]);
+  if (safeUrl(c.linkedin)) lines.push(['user', `<a href="${esc(c.linkedin)}"${ext}>LinkedIn</a>`]);
+  if (safeUrl(c.github)) lines.push(['code', `<a href="${esc(c.github)}"${ext}>GitHub</a>`]);
+  if (safeUrl(c.website)) lines.push(['globe', `<a href="${esc(c.website)}"${ext}>Website</a>`]);
+  const socials = [];
+  if (c.email.trim()) socials.push(['mailto:' + c.email.trim(), 'mail', 'Email']);
+  if (safeUrl(c.linkedin)) socials.push([c.linkedin, 'user', 'LinkedIn']);
+  if (safeUrl(c.github)) socials.push([c.github, 'code', 'GitHub']);
+  if (safeUrl(c.website)) socials.push([c.website, 'globe', 'Website']);
+  const leads = {'New opportunities':"I'm open to new opportunities. I'd be glad to hear about roles where I can make an impact.",
+    'Freelance & consulting':"I take on freelance and consulting work. Tell me about your project.",
+    'Speaking & mentoring':"I enjoy speaking at events and mentoring. Feel free to reach out.",
+    'Collaboration on side projects':"I'm always up for collaborating on interesting side projects."};
+  return {
+    sections: S,
+    hero: ret ? {
+      eyebrow: "Hi, I'm", headline: p.headline,
+      meta: nz(+p.years ? p.years + ' years of experience' : '', p.role ? 'previously ' + p.role : '', p.city).map(esc).join(' · '),
+      badge: p.openToWork ? esc(nz(p.target ? 'Open to ' + p.target + ' roles' : 'Open to work', avail).join(' · ')) : '',
+      primary: exp.length || hasBreak ? ['#experience', 'View experience'] : null,
+      cvLabel: 'Resume',
+      stats: [[+p.years ? p.years : 0, 'Years experience'], [companies, companies > 1 ? 'Companies' : 'Company'], [certs.length, certs.length > 1 ? 'Certifications' : 'Certification'], [projects.length, projects.length > 1 ? 'Projects' : 'Project']].filter(s => s[0] && s[0] !== '0').slice(0, 4),
+      socials
+    } : {
+      eyebrow: "Hi, I'm", headline: p.headline,
+      meta: nz(p.role && p.company ? `${p.role} at ${p.company}` : p.role, +p.years ? p.years + '+ years of experience' : '', p.city).map(esc).join(' · '),
+      badge: p.openTo ? esc('Open to ' + p.openTo.charAt(0).toLowerCase() + p.openTo.slice(1) + (p.openTo === 'New opportunities' && p.notice ? ' · ' + (p.notice === 'Immediate' ? 'Immediate joiner' : p.notice === 'Serving notice' ? 'Serving notice' : p.notice + ' notice') : '')) : '',
+      primary: exp.length ? ['#experience', 'View experience'] : projects.length ? ['#projects', 'View projects'] : null,
+      cvLabel: 'Resume',
+      stats: [[+p.years ? p.years + '+' : 0, 'Years'], [companies, companies > 1 ? 'Companies' : 'Company'], [projects.length, projects.length > 1 ? 'Projects' : 'Project'], [certs.length, certs.length > 1 ? 'Certifications' : 'Certification'], [awards.length, awards.length > 1 ? 'Awards' : 'Award']].filter(s => s[0] && s[0] !== '0').slice(0, 4),
+      socials
+    },
+    resume: {nav:'Resume', kicker:'Resume', title:'Get my resume', card:'Resume', sub:'ATS-friendly PDF'},
+    contactLead: ret ? esc(`I'm returning to work and looking for ${p.target || 'new'} roles${modes ? ' (' + modes.toLowerCase() + ')' : ''}. I'd love to hear from you.`)
+      : leads[p.openTo] || 'Have a question or an idea? Get in touch.',
+    contactLines: lines,
+    profileLinks: D.profiles.filter(x => safeUrl(x.url)).map(x => [x.url, /YouTube|Blog|Behance|Dribbble/.test(x.platform) ? 'globe' : 'code', x.platform || 'Profile']),
+    desc: p.headline.trim() || p.summary.trim()
+  };
+}
+
+/* ----- Resume for working professionals ----- */
+function proResumeModel(D, R){
+  pdfDropped = new Set(); pdfWide = false;
+  const P = pdfText, inc = R.inc, p = D.profile, c = D.contact, sk = D.skills;
+  const span = (a, b) => nz(P(a), P(b)).join(' - ');
+  const pts = t => String(t || '').split('\n').map(l => P(l.replace(/^[\s•*-]+/, ''))).filter(Boolean);
+  const M = {name: P(p.name) || 'Your Name', docTitle:'Resume', footer: R.maxPages === '2',
+    headline: P(p.headline || nz(p.role, p.company).join(', ')), contacts: [], sections: []};
+  if (p.city.trim()) M.contacts.push({text: P(p.city)});
+  if (c.phone.trim()) M.contacts.push({text: P(c.phone), url: 'tel:' + c.phone.replace(/[^\d+]/g, '')});
+  if (c.email.trim()) M.contacts.push({text: P(c.email), url: 'mailto:' + c.email.trim()});
+  [c.linkedin, c.github, c.website].forEach(u => { if (safeUrl(u)) M.contacts.push({text: P(shortUrl(u)), url: u.trim()}); });
+  const sec = (title, blocks) => { blocks = blocks.filter(Boolean); if (blocks.length) M.sections.push({title, blocks}); };
+
+  if (p.summary.trim()) sec('PROFESSIONAL SUMMARY', [{k:'para', text: P(p.summary)}]);
+  if (inc.highlights) sec('KEY ACHIEVEMENTS', pts(p.highlights).slice(0, 5).map(t => ({k:'bullet', text: t})));
+  const PR = presetFor(D), title = t => t.replace(/\b\w/g, c => c.toUpperCase()).replace(/ And /g, ' & ');
+  sec('CORE SKILLS', [
+    sk.domain.length && {k:'label', label:'Expertise', text: P(sk.domain.join(', '))},
+    sk.languages.length && {k:'label', label: PR.skills ? title(PR.skills.languages[0]) : 'Technologies', text: P(sk.languages.join(', '))},
+    sk.tools.length && {k:'label', label: PR.skills ? title(PR.skills.tools[0]) : 'Tools & Platforms', text: P(sk.tools.join(', '))},
+    inc.soft && sk.soft.length && {k:'label', label:'Leadership', text: P(sk.soft.join(', '))}
+  ]);
+  const maxB = R.bullets === 'all' ? 99 : +R.bullets;
+  const ret = D.userType === 'return', B = D.careerBreak || {};
+  const brk = ret && inc.breakEntry && (String(B.period || '').trim() || String(B.activities || '').trim())
+    ? [{k:'entry', left:'Career Break', right: P(B.period), sub: B.showReason && B.reason ? P(B.reason) : '', bullets: pts(B.activities).slice(0, 5)}] : [];
+  sec('PROFESSIONAL EXPERIENCE', brk.concat(D.experience.filter(x => x.role.trim() || x.company.trim()).map((x, i) => ({k:'entry',
+    left: P(x.role || x.company), right: span(x.start, x.end),
+    sub: nz(x.role ? P(x.company) : '', P(x.location), x.type && x.type !== 'Full-time' ? P(x.type) : '', inc.teamLine ? P(x.about) : '').join(' | '),
+    labels: inc.tech && x.tech.length ? [{label: PR.techShort || 'Tech', text: P(x.tech.join(', '))}] : [],
+    bullets: pts(x.points).slice(0, i === 0 ? Math.max(maxB, 4) : maxB)}))));
+  const limit = R.maxProjects === 'all' ? 99 : +R.maxProjects;
+  if (limit) sec(PR.projTitle && D.userType === 'professional' ? PR.projTitle.toUpperCase() : 'KEY PROJECTS', D.projects.filter(x => x.title.trim()).map((x, i) => ({...x, _i: i})).sort((a, b) => (b.featured - a.featured) || (a._i - b._i)).slice(0, limit).map(x => {
+    const link = safeUrl(x.github) || safeUrl(x.demo);
+    return {k:'entry', left: P(x.title), right: P(x.duration), sub: nz(P(x.category), x.role.trim() ? 'Role: ' + P(x.role) : '').join(' | '),
+      labels: [x.tech.length && {label: PR.techShort || 'Tech', text: P(x.tech.join(', '))}, link && {label:'Link', text: P(shortUrl(link)), url: link}].filter(Boolean),
+      bullets: P(x.description).split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean).slice(0, 2).concat(x.outcome.trim() ? [P(x.outcome)] : [])};
+  }));
+  sec('EDUCATION', D.education.filter(e => e.degree.trim() || e.institution.trim()).map(e => ({k:'entry',
+    left: P(nz(e.degree, e.field).join(e.degree && e.field ? ' in ' : '')), right: P(e.year), sub: nz(P(e.institution), P(e.score)).join(' | ')})));
+  const line = (a, b) => ({k:'bullet', text: nz(a, b).join(' - ')});
+  if (inc.certs) sec(ret ? 'CERTIFICATIONS & RECENT TRAINING' : 'CERTIFICATIONS', D.certifications.filter(x => x.name.trim()).map(x => line(P(x.name), nz(P(x.issuer), x.date.trim() ? '(' + P(x.date) + ')' : '').join(' '))));
+  if (inc.licences && (D.more.licences || []).length) sec('LICENCES & MEMBERSHIPS', [{k:'para', text: P(D.more.licences.join(', '))}]);
+  if (inc.awards) sec('AWARDS & RECOGNITION', D.awards.filter(x => x.title.trim()).map(x => ({k:'bullet',
+    text: nz(P(x.title), nz(P(x.org), x.year.trim() ? '(' + P(x.year) + ')' : '').join(' ')).join(' - ') + (x.desc.trim() ? '. ' + P(x.desc) : '')})));
+  if (inc.talks) sec('TALKS, ARTICLES & PATENTS', D.talks.filter(x => x.title.trim()).map(x => ({k:'bullet',
+    text: '"' + P(x.title) + '" - ' + nz(P(x.type), P(x.venue), P(x.date)).join(', ')})));
+  if (inc.activities) sec('VOLUNTEERING & LEADERSHIP', D.activities.filter(x => x.role.trim() || x.org.trim()).map(x => ({k:'bullet',
+    text: nz(P(x.role), P(x.org)).join(', ') + (x.period.trim() ? ' (' + P(x.period) + ')' : '') + (x.desc.trim() ? ': ' + P(x.desc) : '')})));
+  sec('ADDITIONAL INFORMATION', [
+    inc.jobinfo && p.notice && {k:'label', label:'Notice period', text: P(p.notice)},
+    inc.jobinfo && ret && p.availability && {k:'label', label:'Availability', text: P(p.availability === 'Immediately' ? 'Immediate joiner' : p.availability)},
+    inc.jobinfo && ret && (p.workModes || []).length && {k:'label', label:'Work preference', text: P(p.workModes.join(', '))},
+    inc.jobinfo && (p.locations || []).length && {k:'label', label:'Preferred locations', text: P(p.locations.join(', '))},
+    inc.languages && D.more.languages.length && {k:'label', label:'Languages', text: P(D.more.languages.join(', '))}
+  ]);
+  M.dropped = [...pdfDropped]; M.wide = pdfWide;
+  return M;
+}
+function proChecks(M, fit){
+  const D = state, out = [], R = state.resume, max = +R.maxPages || 2, n = fit.pages.length;
+  out.push([n <= max, n <= max ? `Fits in ${n} page${n > 1 ? 's' : ''}` : `Runs to ${n} pages. Lower bullets per role or projects, or turn off sections.`]);
+  out.push([true, 'Real text in one column with standard headings (no images, tables or icons)']);
+  out.push([!!(D.contact.email.trim() && D.contact.phone.trim()), D.contact.email.trim() && D.contact.phone.trim() ? 'Email and phone at the top' : 'Add both email and phone in Contact']);
+  out.push([!!safeUrl(D.contact.linkedin), safeUrl(D.contact.linkedin) ? 'LinkedIn link included' : 'Add your LinkedIn link']);
+  const kw = ['languages','tools','domain'].reduce((a, k) => a + D.skills[k].length, 0);
+  out.push([kw >= 10, kw >= 10 ? `${kw} skill keywords` : `Only ${kw} skill keywords. Add the exact terms used in job posts you want.`]);
+  const roles = D.experience.filter(x => x.role.trim());
+  const undated = roles.filter(x => !x.start.trim()).length;
+  if (undated) out.push([false, `${undated} role${undated > 1 ? 's have' : ' has'} no start date. Recruiters look for clear dates.`]);
+  const pts = roles.flatMap(x => x.points.split('\n')).map(l => l.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+  if (pts.length){
+    const good = pts.filter(l => ACTION_VERBS.has(l.split(/\s+/)[0].toLowerCase())).length;
+    out.push([good * 10 >= pts.length * 8, `${good} of ${pts.length} achievement points start with an action verb`]);
+    const nums = pts.filter(l => /\d/.test(l)).length;
+    out.push([nums * 2 >= pts.length, `${nums} of ${pts.length} achievement points include a number${nums * 2 >= pts.length ? '' : '. Add results like "cut cost by 20%"'}`]);
+  } else out.push([false, 'Add key achievements under each role']);
+  if (D.userType === 'return'){
+    const B = D.careerBreak, acts = B.activities.split('\n').filter(l => l.trim()).length;
+    out.push([acts >= 2, acts >= 2 ? `Career break listed with ${acts} things you did, so there is no unexplained gap` : 'Add 2+ things you did during the break (courses, projects, volunteering)']);
+    const recent = D.certifications.some(x => +((x.date.match(/(19|20)\d{2}/) || [])[0] || 0) >= new Date().getFullYear() - 2);
+    out.push([recent, recent ? 'Recent certification shows your skills are current' : 'Add a certification or course from the last 2 years']);
+  }
+  if (M.dropped.length) out.push([false, `Removed characters the PDF font cannot show: ${M.dropped.slice(0, 8).join(' ')}. Type these in English.`]);
+  return out;
+}
+
+/* ======================================================================
+   10e. CAREER BREAK (returning to work)
+   ====================================================================== */
+const RETURN_SCHEMA = (() => {
+  const S = deepCopy(PRO_SCHEMA);
+  S.find(s => s.id === 'profile').fields = [
+    {k:'photo', t:'photo', label:'Profile photo'},
+    {k:'name', t:'text', label:'Full name', req:true, ph:'Priya Natarajan'},
+    {k:'profession', t:'select', label:'Your field', opts:PROF_FIELDS, hint:'Changes the labels and examples in this form to suit your field.'},
+    {k:'headline', t:'text', label:'Headline', full:true, ph:'QA Automation Engineer · 6 years in software testing', hint:'One line shown under your name. Lead with your skills, not the break.'},
+    {k:'target', t:'text', label:'Roles you are returning to', req:true, full:true, ph:'QA Automation Engineer, Software Test Engineer'},
+    {k:'role', t:'text', label:'Last designation', req:true, ph:'Senior Test Engineer'},
+    {k:'company', t:'text', label:'Last company', ph:'Company name'},
+    {k:'years', t:'number', label:'Years of work experience', req:true, ph:'6'},
+    {k:'city', t:'text', label:'City', ph:'Chennai'},
+    {k:'summary', t:'textarea', label:'Professional summary', rows:4, max:600,
+     ph:'3–4 lines: your experience and strengths, one line on the break and how you kept skills current, and the role you want now.'},
+    {k:'highlights', t:'textarea', label:'Career highlights (one per line, with numbers)', rows:4, full:true,
+     ph:'Built an automation suite that cut regression time from 3 days to 4 hours\nFound 120+ critical bugs before release in 2020', hint:'Your 3–5 strongest results from before or during the break.'},
+    {k:'availability', t:'select', label:'Available to join', opts:['Immediately','Within 15 days','Within 30 days','Within 2 months']},
+    {k:'workModes', t:'tags', label:'Work preference', ph:'Full-time, Hybrid, Remote, Returnship'},
+    {k:'locations', t:'tags', label:'Preferred locations', ph:'Chennai, Remote'},
+    {k:'openToWork', t:'check', label:'Show an "Open to work" badge with your target roles', def:true}
+  ];
+  S.splice(S.findIndex(s => s.id === 'contact') + 1, 0, {
+    id:'careerBreak', title:'Career break', chip:'Career break', icon:'🌱', need:'Recommended',
+    intro:'A short, confident note works better than an unexplained gap. The reason stays private unless you choose to show it.',
+    fields:[
+      {k:'period', t:'text', label:'Break period', ph:'Mar 2021 – Present'},
+      {k:'reason', t:'select', label:'Reason (optional, private by default)', opts:['Parenting','Family care','Health and recovery','Higher studies','Relocation','Own business / venture','Travel','Personal reasons']},
+      {k:'showReason', t:'check', label:'Show the reason on my portfolio and resume'},
+      {k:'activities', t:'textarea', label:'What I did during the break (one per line)', rows:4, full:true,
+       ph:'Completed ISTQB Foundation certification\nBuilt a Playwright test-automation project on GitHub\nVolunteered as a maths tutor at a local school',
+       hint:'Courses, certifications, projects, freelance work or volunteering. This shows your skills are current.'}
+    ]});
+  const ex = S.find(s => s.id === 'experience');
+  ex.title = 'Previous experience'; ex.chip = 'Experience';
+  ex.intro = 'Your roles before the break, newest first. Focus on achievements with numbers.';
+  const pr = S.find(s => s.id === 'projects');
+  pr.intro = 'Projects you did during the break prove your skills are current: put them first and tick "Featured".';
+  pr.fields.find(f => f.k === 'category').opts = ['Project during break','Work project','Freelance project','Open source','Side project'];
+  S.find(s => s.id === 'certifications').intro = 'Recent courses and certifications matter most: they show your skills are up to date. Add a verification link.';
+  return S;
+})();
+
+const RETURN_CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Headline under your name', d => d.profile.headline.trim()],
+  ['Roles you are returning to', d => d.profile.target.trim()],
+  ['Last designation & years of experience', d => d.profile.role.trim() && +d.profile.years > 0],
+  ['Professional summary (60+ characters)', d => d.profile.summary.trim().length >= 60],
+  ['At least 2 career highlights', d => d.profile.highlights.split('\n').filter(l => l.trim()).length >= 2],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['Phone number', d => d.contact.phone.replace(/\D/g,'').length >= 10],
+  ['LinkedIn link', d => URL_RE.test(d.contact.linkedin)],
+  ['Career break period', d => d.careerBreak.period.trim()],
+  ['What you did during the break', d => d.careerBreak.activities.trim().length > 10],
+  ['Previous role in Experience', d => d.experience.some(x => x.role.trim())],
+  ['At least 8 skills', d => skillCount(d) >= 8],
+  ['A recent certification (last 2 years)', d => d.certifications.some(x => { const y = +((x.date.match(/(19|20)\d{2}/) || [])[0] || 0); return y >= new Date().getFullYear() - 2; })],
+  ['A project (ideally from your break)', d => filled(d.projects).length >= 1]
+];
+
+const RETURN_SAMPLE = {
+  profile: { name:'Priya Natarajan', profession:'IT / Software', headline:'QA Automation Engineer · 6 years in software testing', target:'QA Automation Engineer, Software Test Engineer',
+    role:'Senior Test Engineer', company:'Sample IT Services Ltd', years:'6', city:'Chennai',
+    summary:'QA engineer with 6 years of experience testing banking and e-commerce applications. After a career break to care for my young child, I refreshed my skills with ISTQB certification and hands-on Playwright automation. Looking to return as a QA automation engineer in a hybrid or full-time role.',
+    highlights:'Built a Selenium regression suite that cut testing time from 3 days to 4 hours\nCaught 120+ critical defects before release across 4 banking projects\nTrained 8 new testers on test design and defect reporting',
+    availability:'Immediately', workModes:['Full-time','Hybrid','Returnship'], locations:['Chennai','Remote'], openToWork:true, photo:'' },
+  contact: { email:'priya.natarajan@example.com', phone:'+91 98765 24680', linkedin:'https://www.linkedin.com/in/priya-natarajan-example',
+    github:'https://github.com/priya-natarajan-example', website:'' },
+  profiles: [],
+  careerBreak: { period:'Apr 2021 – Present', reason:'Parenting', showReason:true,
+    activities:'Completed ISTQB Certified Tester Foundation Level (2024)\nLearned Playwright and API testing through online courses\nBuilt an open-source Playwright test suite for a demo e-commerce app\nVolunteered as a computer-skills tutor at a local women\'s centre' },
+  experience: [
+    {role:'Senior Test Engineer', company:'Sample IT Services Ltd', type:'Full-time', location:'Chennai', start:'Jun 2018', end:'Mar 2021',
+     about:'Banking client projects', points:'Built a Selenium regression suite that cut testing time from 3 days to 4 hours\nLed testing for 4 internet-banking releases with zero critical production defects\nTrained 8 new testers on test design and defect reporting', tech:['Selenium','Java','TestNG','JIRA']},
+    {role:'Test Engineer', company:'Sample Software Solutions', type:'Full-time', location:'Chennai', start:'Jul 2015', end:'May 2018',
+     about:'', points:'Wrote and ran 1,500+ manual test cases for an e-commerce platform\nIntroduced a defect-triage checklist that reduced reopened bugs by 30%', tech:['Manual testing','SQL','Postman']}
+  ],
+  skills: { domain:['Test automation','API testing','Regression testing','Banking domain'], languages:['Java','TypeScript','SQL'],
+    tools:['Playwright','Selenium','Postman','JIRA','Git'], soft:['Attention to detail','Mentoring','Clear communication'] },
+  projects: [
+    {title:'Playwright test suite for a demo e-commerce app', category:'Project during break', featured:true,
+     description:'Built an end-to-end and API test suite with page objects, data-driven tests and CI on GitHub Actions.',
+     tech:['Playwright','TypeScript','GitHub Actions'], role:'Individual', team:'1', duration:'2025', outcome:'85 automated tests running on every commit in under 6 minutes',
+     github:'https://github.com/priya-natarajan-example/playwright-shop-tests', demo:''}
+  ],
+  education: [ {degree:'B.E.', field:'Electronics and Communication Engineering', institution:'Sample Engineering College, Anna University', year:'2015', score:''} ],
+  certifications: [
+    {name:'ISTQB Certified Tester Foundation Level', issuer:'ISTQB', date:'2024', link:'https://www.istqb.org/'},
+    {name:'Playwright: End-to-End Testing', issuer:'Online course', date:'2025', link:''}
+  ],
+  awards: [ {title:'Quality Champion Award', org:'Sample IT Services Ltd', year:'2020', desc:'For zero critical defects across 4 releases'} ],
+  talks: [],
+  activities: [ {role:'Volunteer tutor', org:'Sample Women\'s Centre', period:'2023 – 2024', desc:'Taught basic computer skills to 30+ women.'} ],
+  more: { languages:['English','Tamil'], interests:['Gardening','Reading'] }
+};
+
+/* ======================================================================
+   10f. DOCTOR / HEALTHCARE
+   ====================================================================== */
+const DOC_SCHEMA = [
+  { id:'profile', title:'Profile', chip:'Profile', icon:'👤', need:'Required',
+    intro:'Medical councils restrict self-promotion. Keep it factual: no patient testimonials, before/after photos, discounts, or claims like "best" or "guaranteed results". Check your State Medical Council / NMC rules.',
+    fields:[
+      {k:'photo', t:'photo', label:'Profile photo'},
+      {k:'name', t:'text', label:'Full name (with title)', req:true, ph:'Dr. Arun Kumar S'},
+      {k:'qualifications', t:'text', label:'Qualifications', req:true, ph:'MBBS, MD (General Medicine), DM (Cardiology)'},
+      {k:'specialty', t:'text', label:'Specialty', req:true, ph:'Interventional Cardiology'},
+      {k:'designation', t:'text', label:'Designation', ph:'Senior Consultant'},
+      {k:'hospital', t:'text', label:'Hospital / institution', ph:'Hospital name'},
+      {k:'years', t:'number', label:'Years of experience (after MBBS)', ph:'15'},
+      {k:'city', t:'text', label:'City', ph:'Chennai'},
+      {k:'regNo', t:'text', label:'Medical registration number', req:true, ph:'Registration number'},
+      {k:'regCouncil', t:'text', label:'Registering council', ph:'Tamil Nadu Medical Council / NMC'},
+      {k:'bio', t:'textarea', label:'Professional summary', rows:5, max:800,
+       ph:'Factual summary: qualifications, years of experience, areas of clinical focus, procedures you perform, and academic or community work.'},
+      {k:'acceptingNew', t:'check', label:'Show "Consultations available" on the website', def:true}
+    ]},
+  { id:'contact', title:'Contact & links', chip:'Contact', icon:'📇', need:'Required',
+    intro:'Personal contact for your CV. Appointment numbers go under Consultation below.',
+    fields:[
+      {k:'email', t:'email', label:'Email', req:true, ph:'dr.name@example.com'},
+      {k:'phone', t:'tel', label:'Personal phone (CV only)', ph:'+91 98765 43210'},
+      {k:'website', t:'url', label:'Hospital profile page', ph:'https://…'},
+      {k:'linkedin', t:'url', label:'LinkedIn', ph:'https://www.linkedin.com/in/yourname'},
+      {k:'scholar', t:'url', label:'Google Scholar / PubMed / ORCID link', ph:'https://…', full:true}
+    ]},
+  { id:'practice', title:'Consultation & appointments', chip:'Consultation', icon:'🏥', need:'Recommended',
+    list:true, itemLabel:'practice location', titleKey:'name', subKey:'timings',
+    intro:'Where and when patients can consult you. Each location shows Call, Book and Directions buttons on your site.',
+    fields:[
+      {k:'name', t:'text', label:'Hospital / clinic', req:true, ph:'Sample Heart Hospital, Anna Nagar'},
+      {k:'address', t:'text', label:'Address', full:true, ph:'Street, area, city, PIN'},
+      {k:'timings', t:'text', label:'Days & timings', ph:'Mon–Sat, 10 am – 1 pm'},
+      {k:'phone', t:'tel', label:'Appointment phone', ph:'+91 44 0000 0000'},
+      {k:'booking', t:'url', label:'Online booking link', ph:'https://…'},
+      {k:'map', t:'url', label:'Google Maps link', ph:'https://maps.google.com/…'}
+    ]},
+  { id:'expertise', title:'Clinical expertise', chip:'Expertise', icon:'🩺', need:'Required',
+    intro:'Use plain names patients search for, alongside medical terms.',
+    fields:[
+      {k:'conditions', t:'tags', label:'Conditions treated', ph:'Heart attack, Heart failure, High blood pressure…'},
+      {k:'procedures', t:'tags', label:'Procedures & treatments', ph:'Angioplasty, Pacemaker implantation, Echocardiography…'},
+      {k:'interests', t:'tags', label:'Special interests', ph:'Preventive cardiology, Women\'s heart health…'}
+    ]},
+  { id:'experience', title:'Experience', chip:'Experience', icon:'🏛️', need:'Required',
+    list:true, itemLabel:'position', titleKey:'role', subKey:'institution',
+    intro:'Newest first, including residency and fellowship posts.',
+    fields:[
+      {k:'role', t:'text', label:'Designation', req:true, ph:'Consultant Cardiologist'},
+      {k:'institution', t:'text', label:'Hospital / institution', ph:'Hospital name'},
+      {k:'location', t:'text', label:'Location', ph:'Chennai'},
+      {k:'start', t:'text', label:'From', ph:'2016'},
+      {k:'end', t:'text', label:'To', ph:'Present'},
+      {k:'points', t:'textarea', label:'Key responsibilities & achievements (optional)', rows:3, full:true,
+       ph:'One per line:\nPerformed 2,000+ coronary angioplasties\nStarted the heart-failure clinic'}
+    ]},
+  { id:'education', title:'Education & training', chip:'Education', icon:'🎓', need:'Required',
+    list:true, itemLabel:'qualification', titleKey:'degree', subKey:'institution',
+    intro:'Highest qualification first. Include fellowships and observerships.',
+    fields:[
+      {k:'degree', t:'select', label:'Qualification', opts:['DM','MCh','MD','MS','DNB','Fellowship','Diploma','MBBS','BDS','MDS','Observership','Other']},
+      {k:'field', t:'text', label:'Subject', ph:'Cardiology'},
+      {k:'institution', t:'text', label:'Institution', req:true, ph:'Medical college / hospital'},
+      {k:'university', t:'text', label:'University / board', ph:'The Tamil Nadu Dr. M.G.R. Medical University'},
+      {k:'year', t:'text', label:'Year', ph:'2012'},
+      {k:'note', t:'text', label:'Distinction (optional)', ph:'Gold medal'}
+    ]},
+  { id:'certifications', title:'Fellowships & certifications', chip:'Certifications', icon:'📜', need:'Optional',
+    list:true, itemLabel:'certification', titleKey:'name', subKey:'issuer',
+    intro:'FRCP, FACC, FSCAI, ACLS / BLS and similar. Add a verification link if available.',
+    fields:[
+      {k:'name', t:'text', label:'Name', req:true, ph:'Fellow of the American College of Cardiology (FACC)'},
+      {k:'issuer', t:'text', label:'Issued by', ph:'American College of Cardiology'},
+      {k:'date', t:'text', label:'Year', ph:'2021'},
+      {k:'link', t:'url', label:'Verification link', ph:'https://…'}
+    ]},
+  { id:'publications', title:'Publications & presentations', chip:'Publications', icon:'📚', need:'Optional',
+    list:true, itemLabel:'publication', titleKey:'title', subKey:'year', paste:true,
+    intro:'Papers, case reports and conference presentations.',
+    fields:[
+      {k:'type', t:'select', label:'Type', opts:['Journal','Conference','Book chapter','Book']},
+      {k:'year', t:'text', label:'Year', ph:'2024'},
+      {k:'title', t:'text', label:'Title', req:true, full:true, ph:'Title'},
+      {k:'authors', t:'text', label:'Authors', full:true, ph:'Kumar AS, Rao P, …'},
+      {k:'venue', t:'text', label:'Journal / conference', full:true, ph:'Indian Heart Journal'},
+      {k:'details', t:'text', label:'Volume, issue, pages', ph:'vol. 76, no. 2, pp. 101–106'},
+      {k:'doi', t:'text', label:'DOI', ph:'10.1016/…'},
+      {k:'link', t:'url', label:'Link (PubMed etc.)', ph:'https://pubmed.ncbi.nlm.nih.gov/…'}
+    ]},
+  { id:'cme', title:'CME, conferences & teaching', chip:'CME', icon:'🎤', need:'Optional',
+    list:true, itemLabel:'event', titleKey:'title', subKey:'role',
+    fields:[
+      {k:'title', t:'text', label:'Event / topic', req:true, full:true, ph:'Annual Conference of the Cardiological Society of India'},
+      {k:'role', t:'select', label:'Your role', opts:['Faculty / speaker','Chairperson','Organiser','Workshop instructor','Attended','Postgraduate teacher / examiner']},
+      {k:'organiser', t:'text', label:'Organised by', ph:'Cardiological Society of India'},
+      {k:'date', t:'text', label:'Date', ph:'Dec 2025'}
+    ]},
+  { id:'awards', title:'Awards & honours', chip:'Awards', icon:'🏆', need:'Optional',
+    list:true, itemLabel:'award', titleKey:'title', subKey:'org',
+    fields:[
+      {k:'title', t:'text', label:'Award', req:true, ph:'Young Investigator Award'},
+      {k:'org', t:'text', label:'Given by', ph:'Professional society'},
+      {k:'year', t:'text', label:'Year', ph:'2019'}
+    ]},
+  { id:'community', title:'Community & outreach', chip:'Outreach', icon:'🤝', need:'Optional',
+    list:true, itemLabel:'activity', titleKey:'title', subKey:'org',
+    intro:'Free medical camps, health awareness talks, NGO work.',
+    fields:[
+      {k:'title', t:'text', label:'Activity', req:true, ph:'Free cardiac screening camp'},
+      {k:'org', t:'text', label:'With / organised by', ph:'Rotary Club'},
+      {k:'period', t:'text', label:'Date / period', ph:'2024'},
+      {k:'desc', t:'text', label:'Details (optional)', full:true, ph:'Screened 600+ people in rural villages'}
+    ]},
+  { id:'more', title:'Memberships & languages', chip:'More', icon:'🌐', need:'Optional',
+    fields:[
+      {k:'memberships', t:'tags', label:'Professional memberships', ph:'IMA, Cardiological Society of India (Life Member)'},
+      {k:'languages', t:'tags', label:'Languages spoken with patients', ph:'English, Tamil, Hindi'}
+    ]}
+];
+
+const DOC_CHECKS = [
+  ['Full name', d => d.profile.name.trim()],
+  ['Profile photo', d => d.profile.photo],
+  ['Qualifications & specialty', d => d.profile.qualifications.trim() && d.profile.specialty.trim()],
+  ['Medical registration number & council', d => d.profile.regNo.trim() && d.profile.regCouncil.trim()],
+  ['Professional summary (80+ characters)', d => d.profile.bio.trim().length >= 80],
+  ['Valid email', d => EMAIL_RE.test(d.contact.email.trim())],
+  ['A consultation location with timings', d => d.practice.some(x => x.name.trim() && x.timings.trim())],
+  ['Appointment phone or booking link', d => d.practice.some(x => x.phone.trim() || URL_RE.test(x.booking))],
+  ['At least 3 conditions treated', d => d.expertise.conditions.length >= 3],
+  ['Procedures & treatments', d => d.expertise.procedures.length >= 1],
+  ['Current position in Experience', d => d.experience.some(x => x.role.trim())],
+  ['MBBS and higher qualifications in Education', d => d.education.filter(e => e.institution.trim()).length >= 2],
+  ['Languages spoken with patients', d => d.more.languages.length >= 1],
+  ['Publications, CME or fellowships', d => filled(d.publications).length + filled(d.cme).length + filled(d.certifications).length >= 1]
+];
+
+const DOC_SAMPLE = {
+  profile: { name:'Dr. Arun Kumar S', qualifications:'MBBS, MD (General Medicine), DM (Cardiology)', specialty:'Interventional Cardiology',
+    designation:'Senior Consultant Cardiologist', hospital:'Sample Heart Hospital', years:'15', city:'Chennai',
+    regNo:'SAMPLE-00000', regCouncil:'Tamil Nadu Medical Council',
+    bio:'Dr. Arun Kumar S is a senior consultant interventional cardiologist with 15 years of experience after MBBS. He performs coronary angioplasty, pacemaker implantation and structural heart procedures, and runs a dedicated heart-failure clinic. He teaches DM cardiology residents and has published in national and international journals.',
+    acceptingNew:true, photo:'' },
+  contact: { email:'dr.arunkumar@example.com', phone:'+91 98765 11223', website:'https://example.com/doctors/arun-kumar', linkedin:'', scholar:'' },
+  practice: [
+    {name:'Sample Heart Hospital, Anna Nagar', address:'12, Sample Main Road, Anna Nagar, Chennai 600040', timings:'Mon–Sat, 9 am – 1 pm', phone:'+91 44 0000 1111', booking:'https://example.com/book/arun-kumar', map:'https://maps.google.com/?q=Anna+Nagar+Chennai'},
+    {name:'Sample Clinic, T. Nagar', address:'5, Sample Street, T. Nagar, Chennai 600017', timings:'Mon, Wed, Fri · 6 pm – 8 pm', phone:'+91 44 0000 2222', booking:'', map:''}
+  ],
+  expertise: { conditions:['Heart attack','Chest pain (angina)','Heart failure','High blood pressure','Irregular heartbeat','Valve disease'],
+    procedures:['Coronary angioplasty & stenting','Pacemaker implantation','Echocardiography','Treadmill test','TAVI'],
+    interests:['Preventive cardiology','Heart failure care','Women\'s heart health'] },
+  experience: [
+    {role:'Senior Consultant Cardiologist', institution:'Sample Heart Hospital', location:'Chennai', start:'2018', end:'Present', points:'Performed 2,000+ coronary angioplasties\nStarted the hospital\'s heart-failure clinic in 2020'},
+    {role:'Consultant Cardiologist', institution:'Sample Multispeciality Hospital', location:'Coimbatore', start:'2014', end:'2018', points:''},
+    {role:'DM Resident, Cardiology', institution:'Sample Medical College Hospital', location:'Chennai', start:'2011', end:'2014', points:''}
+  ],
+  education: [
+    {degree:'DM', field:'Cardiology', institution:'Sample Medical College', university:'The Tamil Nadu Dr. M.G.R. Medical University', year:'2014', note:''},
+    {degree:'MD', field:'General Medicine', institution:'Sample Medical College', university:'The Tamil Nadu Dr. M.G.R. Medical University', year:'2010', note:'Gold medal'},
+    {degree:'MBBS', field:'', institution:'Sample Medical College', university:'The Tamil Nadu Dr. M.G.R. Medical University', year:'2006', note:''}
+  ],
+  certifications: [
+    {name:'Fellow of the Sample College of Cardiology', issuer:'Sample College of Cardiology', date:'2021', link:''},
+    {name:'Advanced Cardiac Life Support (ACLS) Instructor', issuer:'Sample Heart Association', date:'2024', link:''}
+  ],
+  publications: [
+    {type:'Journal', year:'2024', title:'Outcomes of primary angioplasty in a South Indian tertiary centre', authors:'Kumar AS, Rao P, Devi M', venue:'Sample Heart Journal', details:'vol. 76, no. 2, pp. 101–106', doi:'10.1000/shj.2024.0101', link:'', indexing:'', quartile:'', featured:false},
+    {type:'Conference', year:'2023', title:'Heart-failure clinic: one-year readmission results', authors:'Kumar AS, Lakshmi V', venue:'Annual Sample Cardiology Conference', details:'', doi:'', link:'', indexing:'', quartile:'', featured:false}
+  ],
+  cme: [
+    {title:'Annual Sample Cardiology Conference', role:'Faculty / speaker', organiser:'Sample Cardiology Society', date:'Dec 2025'},
+    {title:'Hands-on workshop: complex coronary interventions', role:'Workshop instructor', organiser:'Sample Heart Hospital', date:'Aug 2025'}
+  ],
+  awards: [ {title:'Young Investigator Award', org:'Sample Cardiology Society', year:'2015'} ],
+  community: [ {title:'Free cardiac screening camps', org:'Sample Rotary Club', period:'2019 – Present', desc:'Screened 3,000+ people in rural Tamil Nadu'} ],
+  more: { memberships:['Indian Medical Association','Sample Cardiology Society (Life Member)'], languages:['English','Tamil','Hindi'] }
+};
+
+/* ----- Doctor website ----- */
+function doctorSite(D, K, opt){
+  const {ext, chips, span, bullets, sec, hlItem, entry, groupCards} = K;
+  const p = D.profile, c = D.contact, E = D.expertise;
+  const prac = D.practice.filter(x => x.name.trim());
+  const exp = D.experience.filter(x => x.role.trim() || x.institution.trim());
+  const edu = D.education.filter(e => e.institution.trim() || e.degree.trim());
+  const certs = D.certifications.filter(x => x.name.trim());
+  const pubs = sortedPubs(D);
+  const cme = D.cme.filter(x => x.title.trim());
+  const awards = D.awards.filter(x => x.title.trim());
+  const comm = D.community.filter(x => x.title.trim());
+  const S = [];
+  const reg = nz(p.regNo, p.regCouncil && '(' + p.regCouncil + ')').join(' ');
+
+  const facts = [['cap','Specialty', p.specialty],['award','Qualifications', p.qualifications],['check','Registration', reg],
+    ['home','Hospital', nz(p.designation, p.hospital).join(', ')],['spark','Experience', +p.years ? p.years + ' years' : ''],['globe','Languages spoken', D.more.languages.join(', ')]]
+    .filter(f => String(f[2] || '').trim());
+  if (p.bio.trim() || facts.length){
+    S.push(['about','About','user', sec('about','About','Profile',
+      `<div class="about"><div class="rv prose">${p.bio.trim() ? esc(p.bio).split(/\n+/).map(x => `<p class="lead">${x}</p>`).join('') : ''}</div>` +
+      `${facts.length ? `<div class="card facts rv">${facts.map(([i, l, v]) => `<div class="fact">${ic(i)}<div><b>${l}</b>${esc(v)}</div></div>`).join('')}</div>` : ''}</div>`)]);
+  }
+  const eg = [['Conditions treated','spark',E.conditions],['Procedures & treatments','check',E.procedures],['Special interests','user',E.interests]].filter(g => g[2].length);
+  if (eg.length) S.push(['expertise','Expertise','spark', sec('expertise','Clinical expertise','Areas of care',
+    `<div class="skillgroups">${eg.map(([l, i, a]) => `<div class="card rv"><h3>${ic(i)}${l}</h3>${chips(a)}</div>`).join('')}</div>`)]);
+  if (prac.length){
+    S.push(['consult','Consultation','pin', sec('consult','Consultation','Where to consult',
+      `<div class="grid">${prac.map(x => {
+        const tel = x.phone.trim() ? x.phone.replace(/[^\d+]/g, '') : '';
+        const btns = (safeUrl(x.booking) ? `<a class="btn primary" href="${esc(x.booking)}"${ext}>${ic('file')}Book</a>` : '') +
+          (tel ? `<a class="btn ${safeUrl(x.booking) ? 'ghost' : 'primary'}" href="tel:${esc(tel)}">${ic('phone')}Call</a>` : '') +
+          (safeUrl(x.map) ? `<a class="btn ghost" href="${esc(x.map)}"${ext}>${ic('pin')}Directions</a>` : '');
+        return `<article class="card proj rv"><h3>${esc(x.name)}</h3>${x.address.trim() ? `<p class="muted">${esc(x.address)}</p>` : ''}` +
+          `${x.timings.trim() ? `<p class="outcome">${ic('spark')}<span>${esc(x.timings)}</span></p>` : ''}${x.phone.trim() ? `<p class="small muted">Appointments: ${esc(x.phone)}</p>` : ''}` +
+          `${btns ? `<div class="ctas" style="margin-top:6px">${btns}</div>` : ''}</article>`;
+      }).join('')}</div><p class="small muted rv" style="margin-top:18px">In an emergency, go to the nearest hospital emergency department.</p>`)]);
+  }
+  if (exp.length) S.push(['experience','Experience','brief', sec('experience','Experience','Clinical experience',
+    `<div class="list">${exp.map(x => entry(x.role || x.institution, nz(x.role ? x.institution : '', x.location).map(esc).join(' · '), span(x.start, x.end), bullets(x.points))).join('')}</div>`)]);
+  if (edu.length || certs.length){
+    let b = edu.length ? `<div class="list">${edu.map(e => entry(nz(e.degree, e.field).join(e.degree && e.field ? ' (' : '') + (e.degree && e.field ? ')' : ''), nz(e.institution, e.university).map(esc).join(' · '), e.year,
+      e.note.trim() ? `<span class="score">${esc(e.note)}</span>` : '')).join('')}</div>` : '';
+    if (certs.length) b += `<h3 class="subh rv" style="margin-top:${edu.length ? 34 : 0}px">${ic('award')}Fellowships &amp; certifications</h3><div class="grid">${certs.map(x => `<article class="card cert rv"><h3>${esc(x.name)}</h3><p class="small muted">${nz(x.issuer, x.date).map(esc).join(' · ')}</p>` +
+      `${safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('check')}Verify</a>` : ''}</article>`).join('')}</div>`;
+    S.push(['education','Education','cap', sec('education','Education','Qualifications &amp; training', b)]);
+  }
+  if (pubs.length){
+    S.push(['publications','Publications','file', sec('publications','Publications','Publications &amp; presentations',
+      `<ol class="pubs${pubs.length > 10 ? ' clip' : ''}">${pubs.map(x => {
+        const doi = cleanDoi(x.doi);
+        const links = (doi ? `<a href="https://doi.org/${esc(doi)}"${ext}>${ic('ext')}DOI</a>` : '') + (safeUrl(x.link) ? `<a href="${esc(x.link)}"${ext}>${ic('file')}Link</a>` : '');
+        return `<li class="card pub rv"><div class="pub-top"><span class="tag">${esc(x.type)}</span>${pubYear(x) > 0 ? `<span class="when">${pubYear(x)}</span>` : ''}</div>` +
+          `<p class="pub-t">${esc(x.title)}</p>${x.authors.trim() ? `<p class="small muted">${esc(x.authors)}</p>` : ''}` +
+          `${nz(x.venue, x.details).length ? `<p class="small"><i>${esc(x.venue)}</i>${x.details.trim() ? (x.venue.trim() ? ', ' : '') + esc(x.details) : ''}</p>` : ''}${links ? `<div class="plinks">${links}</div>` : ''}</li>`;
+      }).join('')}</ol>${pubs.length > 10 ? `<div class="more-wrap"><button class="btn ghost" type="button" data-more>Show all ${pubs.length}</button></div>` : ''}` +
+      `${safeUrl(c.scholar) ? `<p style="text-align:center"><a class="subtle-link" href="${esc(c.scholar)}"${ext}>${ic('ext')}Full list</a></p>` : ''}`)]);
+  }
+  const groups = [];
+  if (cme.length) groups.push(['spark','CME, conferences &amp; teaching', cme.map(x => hlItem(x.title, nz(x.role, x.organiser, x.date))).join('')]);
+  if (awards.length) groups.push(['trophy','Awards &amp; honours', awards.map(x => hlItem(x.title, nz(x.org, x.year))).join('')]);
+  if (comm.length) groups.push(['user','Community &amp; outreach', comm.map(x => hlItem(x.title, nz(x.org, x.period), x.desc)).join('')]);
+  if (D.more.memberships.length) groups.push(['globe','Professional memberships', chips(D.more.memberships)]);
+  if (groups.length) S.push(['highlights','Highlights','trophy', sec('highlights','Highlights','Academic &amp; community work', groupCards(groups))]);
+
+  const p0 = prac[0];
+  const tel0 = p0 && p0.phone.trim() ? 'tel:' + p0.phone.replace(/[^\d+]/g, '') : '';
+  const primary = p0 && safeUrl(p0.booking) ? [esc(p0.booking), 'Book appointment'] : tel0 ? [esc(tel0), 'Call for appointment'] : prac.length ? ['#consult', 'Consultation timings'] : null;
+  const lines = [];
+  if (safeUrl(c.website)) lines.push(['globe', `<a href="${esc(c.website)}"${ext}>Hospital profile</a>`]);
+  if (safeUrl(c.linkedin)) lines.push(['user', `<a href="${esc(c.linkedin)}"${ext}>LinkedIn</a>`]);
+  prac.forEach(x => { if (x.phone.trim()) lines.push(['phone', `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ''))}">${esc(x.phone)}</a> · ${esc(x.name)}`]); });
+  const socials = [];
+  if (tel0) socials.push([tel0, 'phone', 'Call']);
+  if (c.email.trim()) socials.push(['mailto:' + c.email.trim(), 'mail', 'Email']);
+  if (safeUrl(c.website)) socials.push([c.website, 'globe', 'Hospital profile']);
+  if (safeUrl(c.linkedin)) socials.push([c.linkedin, 'user', 'LinkedIn']);
+  return {
+    sections: S,
+    hero: {
+      eyebrow: esc(p.specialty || 'Doctor'), headline: p.qualifications,
+      meta: nz(nz(p.designation, p.hospital).join(', '), +p.years ? p.years + ' years of experience' : '', p.city).map(esc).join(' · '),
+      badge: p.acceptingNew && p0 ? esc('Consultations: ' + (p0.timings || p0.name)) : '',
+      primary, cvLabel: 'CV',
+      stats: [[+p.years ? p.years + '+' : 0, 'Years'], [E.procedures.length, 'Procedures'], [pubs.length, pubs.length > 1 ? 'Publications' : 'Publication'], [certs.length, certs.length > 1 ? 'Fellowships' : 'Fellowship']].filter(s => s[0] && s[0] !== '0').slice(0, 4),
+      socials
+    },
+    resume: {nav:'CV', kicker:'Curriculum vitae', title:'Download my CV', card:'Curriculum Vitae', sub:'PDF' + (reg ? ' · Reg. ' + esc(reg) : '')},
+    contactLead: 'For appointments, please call the hospital or clinic numbers below. For other enquiries, send a message.',
+    contactLines: lines,
+    profileLinks: safeUrl(c.scholar) ? [[c.scholar, 'file', 'Publications profile']] : [],
+    profileLabel: 'Research profile',
+    footNote: (reg ? 'Registration: ' + esc(reg) + '. ' : '') + 'Information on this website is for general awareness and is not medical advice. In an emergency, contact the nearest hospital.',
+    desc: nz(p.name && p.specialty ? `${p.name}, ${p.specialty}` : '', p.qualifications, p.hospital).join(' · ')
+  };
+}
+
+/* ----- Doctor CV ----- */
+function docResumeModel(D, R){
+  pdfDropped = new Set(); pdfWide = false;
+  const P = pdfText, inc = R.inc, p = D.profile, c = D.contact, E = D.expertise;
+  const span = (a, b) => nz(P(a), P(b)).join(' - ');
+  const M = {name: P(p.name) || 'Your Name', docTitle:'Curriculum Vitae', footer: true,
+    headline: [P(p.qualifications), nz(P(p.designation), P(p.specialty)).join(', '), P(p.hospital)].filter(Boolean).join(' | '), contacts: [], ids: [], sections: []};
+  if (p.city.trim()) M.contacts.push({text: P(p.city)});
+  if (c.phone.trim()) M.contacts.push({text: P(c.phone), url: 'tel:' + c.phone.replace(/[^\d+]/g, '')});
+  if (c.email.trim()) M.contacts.push({text: P(c.email), url: 'mailto:' + c.email.trim()});
+  [c.website, c.linkedin].forEach(u => { if (safeUrl(u)) M.contacts.push({text: P(shortUrl(u)), url: u.trim()}); });
+  if (p.regNo.trim()) M.ids.push({text: P('Medical Reg. No. ' + p.regNo.trim() + (p.regCouncil.trim() ? ' (' + p.regCouncil.trim() + ')' : ''))});
+  const sec = (title, blocks) => { blocks = blocks.filter(Boolean); if (blocks.length) M.sections.push({title, blocks}); };
+  if (p.bio.trim()) sec('PROFESSIONAL SUMMARY', [{k:'para', text: P(p.bio)}]);
+  sec('CLINICAL EXPERTISE', [
+    E.conditions.length && {k:'label', label:'Conditions', text: P(E.conditions.join(', '))},
+    E.procedures.length && {k:'label', label:'Procedures', text: P(E.procedures.join(', '))},
+    E.interests.length && {k:'label', label:'Special interests', text: P(E.interests.join(', '))}
+  ]);
+  sec('PROFESSIONAL EXPERIENCE', D.experience.filter(x => x.role.trim() || x.institution.trim()).map(x => ({k:'entry',
+    left: P(x.role || x.institution), right: span(x.start, x.end), sub: nz(x.role ? P(x.institution) : '', P(x.location)).join(' | '),
+    bullets: String(x.points || '').split('\n').map(l => P(l.replace(/^[\s•*-]+/, ''))).filter(Boolean)})));
+  sec('EDUCATION & TRAINING', D.education.filter(e => e.institution.trim() || e.degree.trim()).map(e => ({k:'entry',
+    left: P(nz(e.degree, e.field).join(e.degree && e.field ? ' (' : '') + (e.degree && e.field ? ')' : '')), right: P(e.year), sub: nz(P(e.institution), P(e.university), P(e.note)).join(' | ')})));
+  if (inc.certs) sec('FELLOWSHIPS & CERTIFICATIONS', D.certifications.filter(x => x.name.trim()).map(x => ({k:'bullet',
+    text: nz(P(x.name), nz(P(x.issuer), x.date.trim() ? '(' + P(x.date) + ')' : '').join(' ')).join(' - ')})));
+  if (inc.pubs){
+    const pubs = sortedPubs(D);
+    sec('PUBLICATIONS & PRESENTATIONS', pubs.map((x, i) => ({k:'num', n: String(i + 1), text: pubCite(x)})));
+  }
+  if (inc.cme) sec('CME, CONFERENCES & TEACHING', D.cme.filter(x => x.title.trim()).map(x => ({k:'bullet', text: P(x.title) + ' - ' + nz(P(x.role), P(x.organiser), P(x.date)).join(', ')})));
+  if (inc.awards) sec('AWARDS & HONOURS', D.awards.filter(x => x.title.trim()).map(x => ({k:'bullet', text: nz(P(x.title), nz(P(x.org), x.year.trim() ? '(' + P(x.year) + ')' : '').join(' ')).join(' - ')})));
+  if (inc.community) sec('COMMUNITY & OUTREACH', D.community.filter(x => x.title.trim()).map(x => ({k:'bullet',
+    text: nz(P(x.title), P(x.org)).join(', ') + (x.period.trim() ? ' (' + P(x.period) + ')' : '') + (x.desc.trim() ? ': ' + P(x.desc) : '')})));
+  if (D.more.memberships.length) sec('PROFESSIONAL MEMBERSHIPS', [{k:'para', text: P(D.more.memberships.join(', '))}]);
+  if (inc.practice) sec('CONSULTATION', D.practice.filter(x => x.name.trim()).map(x => ({k:'bullet', text: nz(P(x.name), P(x.timings)).join(' - ')})));
+  if (D.more.languages.length) sec('LANGUAGES', [{k:'para', text: P(D.more.languages.join(', '))}]);
+  M.dropped = [...pdfDropped]; M.wide = pdfWide;
+  return M;
+}
+function docChecks(M, fit){
+  const D = state, out = [], n = fit.pages.length, max = +state.resume.maxPages || 0;
+  out.push([!max || n <= max, !max ? `${n} page${n > 1 ? 's' : ''}, with your name and page numbers on every page` : n <= max ? `Fits in ${n} page${n > 1 ? 's' : ''}` : `Runs to ${n} pages. Turn off some sections or choose "Full CV".`]);
+  out.push([true, 'Real, selectable text with standard headings']);
+  out.push([!!D.profile.regNo.trim(), D.profile.regNo.trim() ? 'Medical registration number on the CV' : 'Add your medical registration number']);
+  out.push([!!(D.profile.qualifications.trim() && D.profile.specialty.trim()), D.profile.qualifications.trim() ? 'Qualifications and specialty at the top' : 'Add your qualifications and specialty']);
+  const undated = D.experience.filter(x => x.role.trim() && !x.start.trim()).length;
+  if (undated) out.push([false, `${undated} position${undated > 1 ? 's have' : ' has'} no start year`]);
+  if (M.dropped.length) out.push([false, `Removed characters the PDF font cannot show: ${M.dropped.slice(0, 8).join(' ')}. Type these in English.`]);
+  return out;
+}
+
+/* ======================================================================
    11. PORTFOLIO WEBSITE GENERATOR
    buildSite(data, design, options) returns the finished website as
    { html, css, js }. The preview shows it inline; Step 4 will write the
@@ -1633,6 +2601,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--bf);tr
 body.lock{overflow:hidden}
 img{max-width:100%;display:block}
 a{color:inherit;text-decoration:none}
+h1,h2,h3,p,li,.org,.when,.tag,.social span,.chips li,.hl-item b{overflow-wrap:anywhere}
 h1,h2,h3{font-family:var(--hf);font-weight:var(--hw);letter-spacing:var(--track);line-height:1.15;margin:0}
 p{margin:0}
 .i{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;transition:transform .25s}
@@ -2130,7 +3099,9 @@ function studentSite(D, K, opt){
   const p = D.profile, c = D.contact, sk = D.skills;
   const projects = D.projects.filter(x => x.title.trim()).map((x, i) => ({...x, _i: i}))
     .sort((a, b) => (b.featured - a.featured) || (a._i - b._i));
+  const fresher = D.userType === 'fresher';
   const interns = D.internships.filter(x => x.org.trim() || x.role.trim());
+  const jobs = (D.work || []).filter(x => x.role.trim() || x.company.trim());
   const edu = D.education.filter(e => e.institution.trim() && (D.educationExtra.showSchool || !/^Class/.test(e.level)));
   const certs = D.certifications.filter(x => x.name.trim());
   const awards = D.achievements.filter(x => x.title.trim());
@@ -2142,10 +3113,12 @@ function studentSite(D, K, opt){
   const skillTotal = skillGroups.reduce((n, g) => n + g[2].length, 0);
   const S = [];
 
-  const facts = [['cap','Studying',nz(p.degree, p.branch).join(' ')],['brief','College',p.college],['spark','Graduating',p.gradYear],['pin','Location',p.city],['globe','Languages',D.more.languages.join(', ')]]
-    .filter(f => String(f[2]).trim());
+  const facts = (fresher
+    ? [['brief','Looking for',p.targetRole],['spark','Availability',p.availability],['cap','Degree',nz(p.degree, p.branch).join(' ')],['home','College',p.college],['award','Year of passing',p.gradYear],['pin','Preferred locations',(p.locations || []).join(', ') || p.city],['globe','Languages',D.more.languages.join(', ')]]
+    : [['cap','Studying',nz(p.degree, p.branch).join(' ')],['brief','College',p.college],['spark','Graduating',p.gradYear],['pin','Location',p.city],['globe','Languages',D.more.languages.join(', ')]])
+    .filter(f => String(f[2] || '').trim());
   if (p.objective.trim() || facts.length || D.more.interests.length){
-    S.push(['about','About','user', sec('about','About','A little about me',
+    S.push(['about','About','user', sec('about','About', fresher ? 'About me' : 'A little about me',
       `<div class="about"><div class="rv">${p.objective.trim() ? `<p class="lead">${esc(p.objective).replace(/\n/g, '<br>')}</p>` : ''}` +
       `${D.more.interests.length ? `<p class="label">Interests</p>${chips(D.more.interests)}` : ''}</div>` +
       `${facts.length ? `<div class="card facts rv">${facts.map(([i, l, v]) => `<div class="fact">${ic(i)}<div><b>${l}</b>${esc(v)}</div></div>`).join('')}</div>` : ''}</div>`)]);
@@ -2168,13 +3141,13 @@ function studentSite(D, K, opt){
     }).join('');
     S.push(['projects','Projects','folder', sec('projects','Projects','Things I have built', fl + `<div class="grid">${cards}</div>`)]);
   }
-  if (interns.length){
-    S.push(['experience','Experience','brief', sec('experience','Experience','Internships & training',
-      `<div class="list">${interns.map(x => entry(x.role || x.org, nz(x.role ? x.org : '', x.location, x.mode).map(esc).join(' · '), span(x.start, x.end),
+  if (interns.length || jobs.length){
+    S.push(['experience','Experience','brief', sec('experience','Experience', jobs.length ? 'Experience &amp; internships' : 'Internships &amp; training',
+      `<div class="list">${jobs.map(x => entry(x.role || x.company, nz(x.role ? x.company : '', x.type, x.location).map(esc).join(' · '), span(x.start, x.end), bullets(x.points))).join('')}${interns.map(x => entry(x.role || x.org, nz(x.role ? x.org : '', x.location, x.mode).map(esc).join(' · '), span(x.start, x.end),
         bullets(x.points) + (safeUrl(x.link) ? `<a class="verify" href="${esc(x.link)}"${ext}>${ic('award')}Certificate</a>` : ''))).join('')}</div>`)]);
   }
   if (edu.length){
-    S.push(['education','Education','cap', sec('education','Education','Where I study',
+    S.push(['education','Education','cap', sec('education','Education', fresher ? 'Education' : 'Where I study',
       `<div class="list">${edu.map(e => {
         const lvl = e.level === 'Degree (UG)' && nz(p.degree, p.branch).length ? nz(p.degree, p.branch).join(' ') : e.level;
         const sc = e.score.trim() ? (e.scoreType === 'Percentage' ? e.score.trim().replace(/%$/, '') + '%' : e.scoreType ? e.scoreType + ' ' + e.score.trim() : e.score.trim()) : '';
@@ -2207,15 +3180,16 @@ function studentSite(D, K, opt){
     sections: S,
     hero: {
       eyebrow: "Hi, I'm", headline: p.headline,
-      meta: nz(nz(p.degree, p.branch).join(' '), p.year, p.college, p.city).map(esc).join(' · '),
-      badge: p.openToWork ? 'Open to internships &amp; jobs' : '',
+      meta: (fresher ? nz(nz(p.degree, p.branch).join(' '), p.college, p.gradYear && 'Class of ' + p.gradYear, p.city) : nz(nz(p.degree, p.branch).join(' '), p.year, p.college, p.city)).map(esc).join(' · '),
+      badge: !p.openToWork ? '' : fresher ? esc(nz(p.targetRole ? 'Open to ' + p.targetRole + ' roles' : 'Open to work', p.availability).join(' · ')) : 'Open to internships &amp; jobs',
       primary: projects.length ? ['#projects', 'View projects'] : null,
       cvLabel: 'Resume',
-      stats: [[projects.length,'Projects'],[interns.length,'Internships'],[certs.length,'Certifications'],[skillTotal,'Skills']].filter(s => s[0] > 0),
+      stats: [[projects.length,'Projects'],[interns.length,'Internships'],[jobs.length, jobs.length > 1 ? 'Jobs' : 'Job'],[certs.length,'Certifications'],[skillTotal,'Skills']].filter(s => s[0] > 0).slice(0, 4),
       socials
     },
-    resume: {nav:'Resume', kicker:'Resume', title:'Get my resume', card: 'Resume', sub: `One page · ATS-friendly PDF${p.gradYear.trim() ? ` · Graduating ${esc(p.gradYear)}` : ''}`},
-    contactLead: p.openToWork ? "I'm open to internships and entry-level roles. I'd love to hear from you." : 'Have a question or an opportunity? Get in touch.',
+    resume: {nav:'Resume', kicker:'Resume', title:'Get my resume', card: 'Resume', sub: `One page · ATS-friendly PDF${p.gradYear.trim() ? ` · ${fresher ? 'Graduated' : 'Graduating'} ${esc(p.gradYear)}` : ''}`},
+    contactLead: fresher && p.openToWork ? esc(`I'm looking for ${p.targetRole || 'entry-level'} roles${p.availability ? ' and am available ' + p.availability.toLowerCase().replace('immediate joiner', 'to join immediately') : ''}. I'd love to hear from you.`)
+      : p.openToWork ? "I'm open to internships and entry-level roles. I'd love to hear from you." : 'Have a question or an opportunity? Get in touch.',
     contactLines: lines,
     profileLinks: D.profiles.filter(x => safeUrl(x.url)).map(x => [x.url, /YouTube|Blog|Behance|Dribbble/.test(x.platform) ? 'globe' : 'code', x.platform || 'Profile']),
     desc: p.headline.trim() || p.objective.trim()
@@ -2382,7 +3356,7 @@ function buildSite(D, ds, opt = {}){
   const name = p.name.trim() || 'Your Name';
   const ini = initials(name.replace(/^(dr|prof|mr|mrs|ms)\.?\s+/i, '')) || 'Y';
   const K = siteKit(), {ext, sec} = K;
-  const parts = (D.userType === 'professor' ? professorSite : studentSite)(D, K, opt);
+  const parts = (D.userType === 'professor' ? professorSite : D.userType === 'doctor' ? doctorSite : (D.userType === 'professional' || D.userType === 'return') ? proSite : studentSite)(D, K, opt);
   const S = parts.sections.slice();
   const email = c.email.trim(), phone = c.phone.trim();
   const resumes = opt.resumes || TYPES[D.userType || 'student'].resume.kinds.map(k => ({href:'#', label:k.label, pending:true}));
@@ -2428,13 +3402,14 @@ function buildSite(D, ds, opt = {}){
     `${socialHTML ? `<div class="hero-social rv">${socialHTML}</div>` : ''}${N === 'side' ? navHTML : ''}</div></section>`;
 
   /* ---- CSS ---- */
-  const css = `/* ${name} · Portfolio · design ${designCode(ds)} */
+  const safeName = name.replace(/[^\p{L}\p{N} .,'()-]/gu, '');
+  const css = `/* ${safeName} · Portfolio · design ${designCode(ds)} */
 :root{--hf:${fn.h},system-ui,sans-serif;--bf:${fn.b},system-ui,sans-serif;--hw:${fn.hw};--track:${fn.track};--hcase:${fn.hcase};--radius:16px;${themeVars(th, 'l')}}
 :root[data-theme="dark"]{${themeVars(th, 'd')}}
 ${SITE_BASE_CSS}${SITE_NAV_CSS[N]}${SITE_LAYOUT_CSS[L]}${SITE_ANIM_CSS[A]}
 ${SITE_FONT_EXTRA[fn.id] || ''}
 `;
-  const js = `/* ${name} · Portfolio */\n(${siteScript.toString()})();\n`;
+  const js = `/* ${safeName} · Portfolio */\n(${siteScript.toString()})();\n`;
 
   /* ---- Page ---- */
   const desc = (parts.desc || `${name} · Portfolio`).slice(0, 155);
@@ -2469,7 +3444,7 @@ ${hero}
 <main class="content">
 ${S.map(s => s[3]).join('\n')}
 </main>
-<footer class="foot"><div class="wrap">© <span id="yr"></span> ${esc(name)} · Built with <a href="https://hemasri-kalaiselvan.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator</a></div></footer>
+<footer class="foot"><div class="wrap">© <span id="yr"></span> ${esc(name)} · Built with <a href="https://hemasri-kalaiselvan.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator</a>${parts.footNote ? `<p class="small" style="margin:8px auto 0;max-width:640px">${parts.footNote}</p>` : ''}</div></footer>
 <a href="#home" class="totop" id="totop" aria-label="Back to top">${ic('up')}</a>
 ${inline ? `<script>${js}${END}` : `<script src="js/main.js">${END}`}
 ${opt.preview ? `<script>(function(){var y=${opt.scrollY | 0};function go(){if(y)window.scrollTo({top:y,behavior:'instant'})}go();addEventListener('load',go);var t;addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){parent.postMessage({pgScroll:window.scrollY},'*')},120)},{passive:true})})();${END}` : ''}
@@ -2662,7 +3637,7 @@ const ACTION_VERBS = new Set(('built designed developed implemented created led 
   'trained won achieved delivered collaborated debugged prototyped modelled modeled measured calibrated installed maintained launched published ' +
   'conducted evaluated identified solved taught mentored cut saved streamlined validated monitored engineered constructed planned supervised ' +
   'supported upgraded migrated refactored visualised visualized compared studied investigated proposed applied set wired soldered coded drafted ' +
-  'hosted volunteered represented ranked secured completed').split(' '));
+  'hosted volunteered represented ranked secured completed fixed resolved shipped ran handled reviewed added converted designed scaled refined managed caught introduced found executed prepared audited reconciled processed supervised treated performed diagnosed').split(' '));
 
 let pdfDropped = new Set(), pdfWide = false;
 /* Characters the embedded Unicode font (DejaVu Sans) can show: Latin extended, Greek, Cyrillic, maths, arrows, symbols */
@@ -2721,7 +3696,8 @@ function resumeModel(D, R){
 
   const sec = (title, blocks) => { blocks = blocks.filter(Boolean); if (blocks.length) M.sections.push({title, blocks}); };
 
-  if (inc.objective && p.objective.trim()) sec('CAREER OBJECTIVE', [{k:'para', text: P(p.objective)}]);
+  const fresher = D.userType === 'fresher';
+  if (inc.objective && p.objective.trim()) sec(fresher ? 'PROFESSIONAL SUMMARY' : 'CAREER OBJECTIVE', [{k:'para', text: P(p.objective)}]);
 
   const eduBlocks = D.education.filter(e => e.institution.trim() && (inc.school || !/^Class/.test(e.level))).map(e => {
     const lvl = e.level === 'Degree (UG)' && nz(p.degree, p.branch).length ? nz(p.degree, p.branch).join(' ')
@@ -2758,8 +3734,13 @@ function resumeModel(D, R){
     sub: nz(x.role ? P(x.org) : '', P(x.location), P(x.mode)).join(' | '),
     bullets: String(x.points || '').split('\n').map(l => P(l.replace(/^[\s•*-]+/, ''))).filter(Boolean)
   }));
-  if (R.order === 'experience'){ sec('INTERNSHIPS & TRAINING', expBlocks); sec('PROJECTS', projBlocks); }
-  else { sec('PROJECTS', projBlocks); sec('INTERNSHIPS & TRAINING', expBlocks); }
+  const workBlocks = (D.work || []).filter(x => x.role.trim() || x.company.trim()).map(x => ({
+    k:'entry', left: P(x.role || x.company), right: span(x.start, x.end),
+    sub: nz(x.role ? P(x.company) : '', P(x.type), P(x.location)).join(' | '),
+    bullets: String(x.points || '').split('\n').map(l => P(l.replace(/^[\s•*-]+/, ''))).filter(Boolean)
+  }));
+  if (R.order === 'experience'){ sec('WORK EXPERIENCE', workBlocks); sec('INTERNSHIPS & TRAINING', expBlocks); sec('PROJECTS', projBlocks); }
+  else { sec('PROJECTS', projBlocks); sec('WORK EXPERIENCE', workBlocks); sec('INTERNSHIPS & TRAINING', expBlocks); }
 
   const line = (main, extra) => ({k:'bullet', text: nz(main, extra).join(' - ')});
   if (inc.certs) sec('CERTIFICATIONS', D.certifications.filter(x => x.name.trim()).map(x =>
@@ -2773,6 +3754,8 @@ function resumeModel(D, R){
   if (inc.workshops) sec('WORKSHOPS & SEMINARS', D.workshops.filter(x => x.title.trim()).map(x =>
     line(P(x.title), nz(P(x.organizer), x.date.trim() ? '(' + P(x.date) + ')' : '').join(' '))));
   sec('ADDITIONAL INFORMATION', [
+    fresher && inc.jobinfo && p.availability && {k:'label', label:'Availability', text: P(p.availability)},
+    fresher && inc.jobinfo && p.locations.length && {k:'label', label:'Preferred locations', text: P(p.locations.join(', '))},
     inc.languages && D.more.languages.length && {k:'label', label:'Languages', text: P(D.more.languages.join(', '))},
     inc.interests && D.more.interests.length && {k:'label', label:'Interests', text: P(D.more.interests.join(', '))}
   ]);
@@ -2992,7 +3975,7 @@ async function buildResume(kind){
   }
   const J = new JsPDF({unit:'pt', format: R.paper === 'letter' ? 'letter' : 'a4'});
   if (UF) addUnicodeFont(J, UF);
-  const fit = fitResume(M, R, J, K.pages);
+  const fit = fitResume(M, R, J, K.pages === 'opt' ? (R.maxPages === '0' ? 0 : (+R.maxPages || 2)) : K.pages);
   return {M, R, K, fit, doc: resumePdf(fit, M, R, JsPDF, UF)};
 }
 
@@ -3004,10 +3987,10 @@ function atsChecks(M, fit){
   out.push([!!safeUrl(D.contact.linkedin), safeUrl(D.contact.linkedin) ? 'LinkedIn link included' : 'Add your LinkedIn link']);
   const kw = ['languages','tools','domain'].reduce((n, k) => n + D.skills[k].length, 0);
   out.push([kw >= 6, kw >= 6 ? `${kw} technical skill keywords` : `Only ${kw} technical skills. Add more keywords from job posts.`]);
-  const pts = D.internships.flatMap(x => String(x.points || '').split('\n')).map(l => l.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+  const pts = D.internships.concat(D.work || []).flatMap(x => String(x.points || '').split('\n')).map(l => l.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
   if (pts.length){
     const good = pts.filter(l => ACTION_VERBS.has(l.split(/\s+/)[0].toLowerCase())).length;
-    out.push([good === pts.length, `${good} of ${pts.length} internship points start with an action verb${good === pts.length ? '' : ' (Built, Designed, Tested…)'}`]);
+    out.push([good === pts.length, `${good} of ${pts.length} experience points start with an action verb${good === pts.length ? '' : ' (Built, Designed, Tested…)'}`]);
   }
   const nums = D.projects.filter(x => /\d/.test(x.outcome)).length + pts.filter(l => /\d/.test(l)).length;
   out.push([nums >= 2, nums >= 2 ? `${nums} results with numbers (great for recruiters)` : 'Add numbers to results, e.g. "cut cost by 20%" or "50+ users"']);
@@ -3461,6 +4444,83 @@ const TYPES = {
       note:'"Best" projects means ⭐ Featured ones first, then in your order from Step 1.'
     }
   },
+  fresher: {
+    id:'fresher', label:'Fresher', edition:'Fresher edition', storeKey:'pg_fresher_v1',
+    schema: FRESHER_SCHEMA, checks: FRESHER_CHECKS, sample: FRESHER_SAMPLE, sampleMsg:'Sample fresher loaded. Edit anything.',
+    keywords: d => ['languages','tools','domain'].flatMap(k => d.skills[k]),
+    resumeModel: (D, R) => resumeModel(D, R),
+    resume: {
+      checksTitle:'ATS check', checks: atsChecks,
+      kinds: [{id:'onepage', label:'Resume', file:'Resume', pages:1, desc:'One-page ATS resume (the Download Resume button)'}],
+      defaults: {...RESUME_DEFAULT, inc: {...RESUME_DEFAULT.inc, jobinfo: true}},
+      options: [
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]],
+        ['order','Section order',[['projects','Projects first'],['experience','Experience & internships first']]],
+        ['maxProjects','Projects to include',[['2','Best 2'],['3','Best 3'],['4','Best 4'],['5','Best 5'],['6','Best 6'],['all','All projects']]]
+      ],
+      toggles: RESUME_TOGGLES.map(([k, l]) => [k, k === 'objective' ? 'Professional summary' : l]).concat([['jobinfo','Availability & locations']]),
+      note:'"Best" projects means ⭐ Featured ones first. Tip: if you have a job or internship, try "Experience & internships first".'
+    }
+  },
+  professional: {
+    id:'professional', label:'Working professional', edition:'Working professional edition', storeKey:'pg_pro_v1',
+    schema: PRO_SCHEMA, checks: PRO_CHECKS, sample: PRO_SAMPLE, sampleMsg:'Sample professional loaded. Edit anything.',
+    keywords: d => ['domain','languages','tools'].flatMap(k => d.skills[k]),
+    resumeModel: (D, R) => proResumeModel(D, R),
+    resume: {
+      checksTitle:'ATS check', checks: proChecks,
+      kinds: [{id:'resume', label:'Resume', file:'Resume', pages:'opt', desc:'ATS-friendly resume (the Download Resume button)'}],
+      defaults: {paper:'a4', maxPages:'2', bullets:'4', maxProjects:'2',
+        inc:{highlights:true, soft:true, tech:true, teamLine:false, certs:true, licences:true, awards:true, talks:true, activities:true, jobinfo:false, languages:true}},
+      options: [
+        ['maxPages','Resume length',[['1','1 page (up to ~5 years)'],['2','2 pages (5+ years)']]],
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]],
+        ['bullets','Achievements per role',[['2','2'],['3','3'],['4','4'],['5','5'],['all','All']]],
+        ['maxProjects','Key projects',[['0','None'],['1','Best 1'],['2','Best 2'],['3','Best 3'],['4','Best 4']]]
+      ],
+      toggles: [['highlights','Key achievements'],['soft','Leadership skills'],['tech','Tech used per role'],['teamLine','Team / product line'],
+        ['certs','Certifications'],['licences','Licences & memberships'],['awards','Awards'],['talks','Talks & articles'],['activities','Volunteering'],['jobinfo','Notice & locations'],['languages','Languages']],
+      note:'Your current role always shows at least 4 achievements. Notice period is off by default: turn it on only when you are actively applying.'
+    }
+  },
+  return: {
+    id:'return', label:'Career break', edition:'Career break edition', storeKey:'pg_return_v1',
+    schema: RETURN_SCHEMA, checks: RETURN_CHECKS, sample: RETURN_SAMPLE, sampleMsg:'Sample returner loaded. Edit anything.',
+    keywords: d => ['domain','languages','tools'].flatMap(k => d.skills[k]),
+    resumeModel: (D, R) => proResumeModel(D, R),
+    resume: {
+      checksTitle:'ATS check', checks: proChecks,
+      kinds: [{id:'resume', label:'Resume', file:'Resume', pages:'opt', desc:'ATS-friendly resume (the Download Resume button)'}],
+      defaults: {paper:'a4', maxPages:'1', bullets:'3', maxProjects:'2',
+        inc:{breakEntry:true, highlights:true, soft:true, tech:true, teamLine:false, certs:true, licences:true, awards:true, talks:true, activities:true, jobinfo:true, languages:true}},
+      options: [
+        ['maxPages','Resume length',[['1','1 page'],['2','2 pages']]],
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]],
+        ['bullets','Achievements per role',[['2','2'],['3','3'],['4','4'],['5','5'],['all','All']]],
+        ['maxProjects','Projects',[['0','None'],['1','Best 1'],['2','Best 2'],['3','Best 3'],['4','Best 4']]]
+      ],
+      toggles: [['breakEntry','Career break entry'],['highlights','Key achievements'],['soft','Leadership skills'],['tech','Tech used per role'],['teamLine','Team / product line'],
+        ['certs','Certifications'],['licences','Licences & memberships'],['awards','Awards'],['talks','Talks & articles'],['activities','Volunteering'],['jobinfo','Availability & preferences'],['languages','Languages']],
+      note:'Recommended: keep "Career break entry" on. A short dated entry with what you did reads far better to recruiters and ATS than an unexplained gap.'
+    }
+  },
+  doctor: {
+    id:'doctor', label:'Doctor / Healthcare', edition:'Doctor / Healthcare edition', storeKey:'pg_doctor_v1',
+    schema: DOC_SCHEMA, checks: DOC_CHECKS, sample: DOC_SAMPLE, sampleMsg:'Sample doctor loaded. Edit anything.',
+    keywords: d => d.expertise.conditions.concat(d.expertise.procedures),
+    resumeModel: (D, R) => docResumeModel(D, R),
+    resume: {
+      checksTitle:'CV check', checks: docChecks,
+      kinds: [{id:'cv', label:'CV', file:'CV', pages:'opt', desc:'Curriculum vitae (the Download CV button)'}],
+      defaults: {paper:'a4', maxPages:'2', inc:{certs:true, pubs:true, cme:true, awards:true, community:true, practice:false}},
+      options: [
+        ['maxPages','CV length',[['2','Up to 2 pages'],['0','Full CV (all pages)']]],
+        ['paper','Paper size',[['a4','A4 (India, most countries)'],['letter','US Letter']]]
+      ],
+      toggles: [['certs','Fellowships & certifications'],['pubs','Publications'],['cme','CME & conferences'],['awards','Awards'],['community','Community work'],['practice','Consultation timings']],
+      note:'Your registration number is always included. Choose "Full CV" for academic or hospital applications that need every publication.'
+    }
+  },
   professor: {
     id:'professor', label:'Professor / Academic', edition:'Professor / Academic edition', storeKey:'pg_professor_v1',
     schema: PROF_SCHEMA, checks: PROF_CHECKS, sample: PROF_SAMPLE, sampleMsg:'Sample professor loaded. Edit anything.',
@@ -3533,7 +4593,7 @@ function pasteBox(s, body){
 
 function refreshType(){
   $('#edition').textContent = TYPE.edition;
-  $('#step3').textContent = TYPE.id === 'professor' ? '3 · Academic CV' : '3 · ATS resume';
+  $('#step3').textContent = TYPE.id === 'professor' ? '3 · Academic CV' : TYPE.id === 'doctor' ? '3 · CV' : '3 · ATS resume';
   document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('on', b.dataset.type === TYPE.id));
   render();
   if (currentView !== 'details') showView(currentView);
